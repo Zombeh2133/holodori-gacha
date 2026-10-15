@@ -26,6 +26,38 @@ _GACHA_PICKUP_RE = re.compile(
 )
 
 
+_KNOWN_BANNER_IDS = {
+    "take your pick! dreamy deep blue gacha": (
+        "gacha-pickup-select-260929"
+    ),
+    "dreamy deep blue gacha": (
+        "gacha-pickup-normal-260929"
+    ),
+    "take your pick! seeking the summer cool gacha": (
+        "gacha-pickup-select-260919"
+    ),
+    "seeking the summer cool gacha": (
+        "gacha-pickup-normal-260919"
+    ),
+    "take your pick! sea bridge gacha": (
+        "gacha-pickup-select-261007"
+    ),
+    "sea bridge gacha": (
+        "gacha-pickup-normal-261007"
+    ),
+    "new area celebration! take your pick! ★5 member gacha": (
+        "gacha-area03-select-260929"
+    ),
+    "new area celebration! one ★5 member guaranteed gacha": (
+        "gacha-fixed-260929"
+    ),
+    "holodori gacha": (
+        "gacha-common-normal-001"
+    ),
+}
+
+
+
 def _safe_name(value: str) -> str:
     cleaned = _SAFE_NAME_RE.sub(
         "_",
@@ -462,14 +494,6 @@ class AssetService:
         banner_type: str = "",
         first_pulled_at=None,
     ):
-        direct = await self.resolve_banner(
-            game_banner_id
-        )
-        if direct is not None:
-            return direct
-
-        await self._load_catalog()
-
         value = str(
             game_banner_id
             or ""
@@ -478,6 +502,28 @@ class AssetService:
             banner_name
             or ""
         ).strip().casefold()
+
+        # Historical Gii Murin rows may only have a synthetic banner ID.
+        # For known campaigns, resolve the exact original game banner ID
+        # from the official banner name instead of guessing by date.
+        mapped_id = _KNOWN_BANNER_IDS.get(
+            name
+        )
+
+        if mapped_id:
+            direct = await self.resolve_banner(
+                mapped_id
+            )
+            if direct is not None:
+                return direct
+
+        direct = await self.resolve_banner(
+            game_banner_id
+        )
+        if direct is not None:
+            return direct
+
+        await self._load_catalog()
         kind = str(
             banner_type
             or ""
@@ -526,15 +572,11 @@ class AssetService:
             )
 
         elif (
-            "take your pick" in name
-            or "pickup" in value
+            "pickup" in value
             or kind in {
                 "select",
                 "pickup",
             }
-            or name.endswith(
-                "gacha"
-            )
         ):
             prefixes.extend(
                 (
