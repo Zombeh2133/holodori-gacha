@@ -232,8 +232,8 @@ catch {
     try {
         if ($_.ErrorDetails.Message) {
             $errorPayload = (
-                $_.ErrorDetails.Message
-                | ConvertFrom-Json
+                $_.ErrorDetails.Message |
+                ConvertFrom-Json
             )
 
             if ($errorPayload.detail) {
