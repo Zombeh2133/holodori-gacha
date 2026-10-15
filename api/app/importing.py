@@ -168,6 +168,16 @@ def infer_banner_type(
         or ""
     ).strip().casefold()
 
+    # Area celebration selection banners are member-select banners too.
+    if (
+        "new area celebration" in name
+        or (
+            "area" in value
+            and "select" in value
+        )
+    ):
+        return "select"
+
     # "Take your pick!" banners let the player select one member for rate-up.
     if (
         "take your pick" in name
@@ -179,6 +189,7 @@ def infer_banner_type(
     # Guaranteed banners are separate from normal rate-up banners.
     if (
         "guaranteed" in name
+        or value.startswith("gacha-fixed-")
         or fallback_value == "guaranteed"
     ):
         return "guaranteed"

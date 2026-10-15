@@ -57,6 +57,261 @@ _KNOWN_BANNER_IDS = {
 }
 
 
+# Exact name mappings above remain authoritative for campaigns where multiple
+# gachas overlap and a date-only heuristic would be ambiguous.
+_HISTORICAL_BANNER_MAX_PREVIOUS_DAYS = 45
+_HISTORICAL_BANNER_MAX_FUTURE_DAYS = 7
+
+
+def _banner_family(
+    *,
+    game_banner_id: str,
+    banner_name: str,
+    banner_type: str,
+) -> str:
+    value = str(
+        game_banner_id
+        or ""
+    ).strip().casefold()
+    name = str(
+        banner_name
+        or ""
+    ).strip().casefold()
+    kind = str(
+        banner_type
+        or ""
+    ).strip().casefold()
+
+    # Area celebration selection banners need to be detected before the
+    # generic "take your pick" rule.
+    if (
+        "new area celebration" in name
+        or value.startswith(
+            "gacha-area03"
+        )
+    ):
+        return "area_select"
+
+    if (
+        "guaranteed" in name
+        or value.startswith(
+            "gacha-fixed-"
+        )
+        or kind == "guaranteed"
+    ):
+        return "guaranteed"
+
+    if (
+        name == "holodori gacha"
+        or value.startswith(
+            "gacha-common-normal"
+        )
+        or kind == "standard"
+    ):
+        return "standard"
+
+    if (
+        "take your pick" in name
+        or "pickup-select" in value
+        or kind == "select"
+    ):
+        return "pickup_select"
+
+    if (
+        "pickup-normal" in value
+        or (
+            "pickup" in value
+            and "select" not in value
+        )
+        or kind == "pickup"
+    ):
+        return "pickup_normal"
+
+    if (
+        "beginner" in value
+        or kind == "beginner"
+    ):
+        return "beginner"
+
+    if (
+        "collab" in value
+        or kind == "collaboration"
+    ):
+        return "collaboration"
+
+    return "unknown"
+
+
+def _campaign_date_from_asset_name(
+    asset_name: str,
+    *,
+    family: str,
+) -> str | None:
+    lowered = str(
+        asset_name
+        or ""
+    ).casefold()
+
+    if family in {
+        "pickup_select",
+        "pickup_normal",
+    }:
+        prefixes = (
+            "img_banner_full_gacha-pickup-",
+            "img_banner_gacha-pickup-",
+        )
+    elif family == "guaranteed":
+        prefixes = (
+            "img_banner_full_gacha-fixed-",
+            "img_banner_gacha-fixed-",
+        )
+    elif family == "area_select":
+        prefixes = (
+            "img_banner_full_gacha-area03",
+            "img_banner_gacha-area03",
+        )
+    else:
+        return None
+
+    if not any(
+        prefix in lowered
+        for prefix in prefixes
+    ):
+        return None
+
+    match = re.search(
+        r"(?<!\\d)(\\d{6})(?!\\d)",
+        lowered,
+    )
+
+    if not match:
+        return None
+
+    try:
+        datetime.strptime(
+            match.group(1),
+            "%y%m%d",
+        )
+    except ValueError:
+        return None
+
+    return match.group(1)
+
+
+def _choose_historical_campaign_date(
+    date_codes: Iterable[str],
+    *,
+    first_pulled_at,
+) -> str | None:
+    if first_pulled_at is None:
+        return None
+
+    try:
+        target_date = first_pulled_at.date()
+    except AttributeError:
+        return None
+
+    parsed = []
+
+    for code in set(
+        str(value)
+        for value in date_codes
+        if value
+    ):
+        try:
+            candidate_date = datetime.strptime(
+                code,
+                "%y%m%d",
+            ).date()
+        except ValueError:
+            continue
+
+        parsed.append(
+            (
+                candidate_date,
+                code,
+            )
+        )
+
+    if not parsed:
+        return None
+
+    previous = sorted(
+        (
+            item
+            for item in parsed
+            if item[0] <= target_date
+        ),
+        reverse=True,
+    )
+
+    if previous:
+        candidate_date, code = previous[0]
+        delta = (
+            target_date
+            - candidate_date
+        ).days
+
+        if (
+            delta
+            <= _HISTORICAL_BANNER_MAX_PREVIOUS_DAYS
+        ):
+            return code
+
+    future = sorted(
+        item
+        for item in parsed
+        if item[0] > target_date
+    )
+
+    if future:
+        candidate_date, code = future[0]
+        delta = (
+            candidate_date
+            - target_date
+        ).days
+
+        if (
+            delta
+            <= _HISTORICAL_BANNER_MAX_FUTURE_DAYS
+        ):
+            return code
+
+    return None
+
+
+def _historical_game_banner_id(
+    *,
+    family: str,
+    date_code: str,
+) -> str | None:
+    if family == "pickup_select":
+        return (
+            "gacha-pickup-select-"
+            + date_code
+        )
+
+    if family == "pickup_normal":
+        return (
+            "gacha-pickup-normal-"
+            + date_code
+        )
+
+    if family == "guaranteed":
+        return (
+            "gacha-fixed-"
+            + date_code
+        )
+
+    if family == "area_select":
+        return (
+            "gacha-area03-select-"
+            + date_code
+        )
+
+    return None
+
+
 
 def _safe_name(value: str) -> str:
     cleaned = _SAFE_NAME_RE.sub(
@@ -524,19 +779,81 @@ class AssetService:
             return direct
 
         await self._load_catalog()
-        kind = str(
-            banner_type
-            or ""
-        ).strip().casefold()
+
+        family = _banner_family(
+            game_banner_id=(
+                game_banner_id
+            ),
+            banner_name=(
+                banner_name
+            ),
+            banner_type=(
+                banner_type
+            ),
+        )
+
+        # Permanent standard banner has a stable exact ID.
+        if family == "standard":
+            standard = await self.resolve_banner(
+                "gacha-common-normal-001"
+            )
+            if standard is not None:
+                return standard
+
+        # For historical synthetic IDs, first narrow the catalog to the
+        # correct gacha family, then derive the closest plausible campaign
+        # date. This is safer than selecting any nearby gacha artwork.
+        date_codes = []
+
+        for index in (
+            self._bundle_index,
+            self._resource_index,
+        ):
+            for asset_name in index:
+                code = (
+                    _campaign_date_from_asset_name(
+                        asset_name,
+                        family=family,
+                    )
+                )
+
+                if code:
+                    date_codes.append(
+                        code
+                    )
+
+        campaign_date = (
+            _choose_historical_campaign_date(
+                date_codes,
+                first_pulled_at=(
+                    first_pulled_at
+                ),
+            )
+        )
+
+        if campaign_date:
+            historical_id = (
+                _historical_game_banner_id(
+                    family=family,
+                    date_code=(
+                        campaign_date
+                    ),
+                )
+            )
+
+            if historical_id:
+                historical = (
+                    await self.resolve_banner(
+                        historical_id
+                    )
+                )
+
+                if historical is not None:
+                    return historical
 
         prefixes = []
 
-        if (
-            "guaranteed" in name
-            or value.startswith(
-                "gacha-fixed-"
-            )
-        ):
+        if family == "guaranteed":
             prefixes.extend(
                 (
                     "img_banner_full_gacha-fixed-",
@@ -544,12 +861,7 @@ class AssetService:
                 )
             )
 
-        elif (
-            "new area celebration" in name
-            or value.startswith(
-                "gacha-area03"
-            )
-        ):
+        elif family == "area_select":
             prefixes.extend(
                 (
                     "img_banner_full_gacha-area03",
@@ -557,13 +869,7 @@ class AssetService:
                 )
             )
 
-        elif (
-            name == "holodori gacha"
-            or value.startswith(
-                "gacha-common"
-            )
-            or kind == "standard"
-        ):
+        elif family == "standard":
             prefixes.extend(
                 (
                     "img_banner_full_gacha-common",
@@ -571,13 +877,10 @@ class AssetService:
                 )
             )
 
-        elif (
-            "pickup" in value
-            or kind in {
-                "select",
-                "pickup",
-            }
-        ):
+        elif family in {
+            "pickup_select",
+            "pickup_normal",
+        }:
             prefixes.extend(
                 (
                     "img_banner_full_gacha-pickup-",

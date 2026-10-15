@@ -110,6 +110,15 @@ def _display_banner_type(
     ).strip().casefold()
 
     if (
+        "new area celebration" in name
+        or (
+            "area" in value
+            and "select" in value
+        )
+    ):
+        return "select"
+
+    if (
         "take your pick" in name
         or "pickup-select" in value
         or stored == "select"
@@ -118,6 +127,7 @@ def _display_banner_type(
 
     if (
         "guaranteed" in name
+        or value.startswith("gacha-fixed-")
         or stored == "guaranteed"
     ):
         return "guaranteed"

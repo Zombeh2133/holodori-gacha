@@ -771,12 +771,23 @@ def infer_banner_type(
         or ""
     ).casefold()
 
+    if (
+        "area" in value
+        and "select" in value
+    ):
+        return "select"
     if "select" in value:
         return "select"
+    if value.startswith(
+        "gacha-fixed-"
+    ):
+        return "guaranteed"
     if "pickup" in value:
         return "pickup"
     if "beginner" in value:
         return "beginner"
+    if "collab" in value:
+        return "collaboration"
     if "common" in value:
         return "standard"
 

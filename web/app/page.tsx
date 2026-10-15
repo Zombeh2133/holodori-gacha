@@ -321,7 +321,7 @@ function ArtworkImage({
 
   const src =
     kind === "banner" && recordId
-      ? `${API}/api/assets/banner-record/${encodeURIComponent(recordId)}?v=3`
+      ? `${API}/api/assets/banner-record/${encodeURIComponent(recordId)}?v=4`
       : `${API}/api/assets/${kind}/${encodeURIComponent(id || "")}`;
 
   return (
