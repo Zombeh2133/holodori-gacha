@@ -1167,3 +1167,23 @@ button { color: inherit; }
   line-height: 1.65;
 }
 
+.import-history-warning {
+  display: grid;
+  gap: 5px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 197, 92, .28);
+  border-radius: 10px;
+  background: rgba(255, 197, 92, .07);
+}
+
+.import-history-warning strong {
+  color: #ffd36b;
+  font-size: .76rem;
+}
+
+.import-history-warning span {
+  color: #c9c0a5;
+  font-size: .7rem;
+  line-height: 1.55;
+}
+

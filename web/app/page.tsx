@@ -1521,6 +1521,16 @@ function ImportView({
           </div>
         </div>
 
+        <div className="import-history-warning">
+          <strong>Important: import every 100 pulls</strong>
+          <span>
+            If you want to track your complete pull history, run an import at least once
+            every 100 pulls. hololive Dreams only keeps the latest 100 pulls in its
+            Gacha Log, so older pulls cannot be recovered by the importer after they
+            fall off the in-game history.
+          </span>
+        </div>
+
         {showCommandHelp && (
           <div className="import-command-help">
             <strong>What this command does</strong>
