@@ -4,7 +4,7 @@ import asyncio
 import logging
 from collections.abc import Iterable
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from .assets import asset_service
 from .database import SessionLocal
@@ -199,21 +199,156 @@ async def warm_database_assets() -> dict:
             ).all()
         )
 
-        banner_ids = list(
-            (
-                await session.scalars(
-                    select(
-                        GachaBanner.game_banner_id
-                    ).distinct()
+        banner_rows = (
+            await session.execute(
+                select(
+                    GachaBanner,
+                    func.min(
+                        GachaPull.pulled_at
+                    ).label(
+                        "first_pulled_at"
+                    ),
                 )
-            ).all()
-        )
+                .outerjoin(
+                    GachaPull,
+                    GachaPull.banner_id
+                    == GachaBanner.id,
+                )
+                .group_by(
+                    GachaBanner.id
+                )
+            )
+        ).all()
 
-    return await warm_asset_ids(
+    result = await warm_asset_ids(
         card_ids=card_ids,
-        banner_ids=banner_ids,
+        banner_ids=(),
     )
 
+    semaphore = asyncio.Semaphore(
+        4
+    )
+    banner_ready = 0
+    banner_missing = 0
+    banner_failed = 0
+
+    async def warm_banner(
+        banner,
+        first_pulled_at,
+    ) -> None:
+        nonlocal banner_ready, banner_missing, banner_failed
+
+        async with semaphore:
+            try:
+                path = (
+                    await asset_service
+                    .get_banner_image_hinted(
+                        game_banner_id=(
+                            banner.game_banner_id
+                        ),
+                        banner_name=(
+                            banner.name
+                        ),
+                        banner_type=(
+                            banner.banner_type
+                        ),
+                        first_pulled_at=(
+                            first_pulled_at
+                        ),
+                    )
+                )
+
+                if path is None:
+                    banner_missing += 1
+                else:
+                    banner_ready += 1
+
+            except Exception as exc:
+                banner_failed += 1
+                logger.warning(
+                    "Historical banner artwork warm failed | "
+                    "banner=%s | error=%s: %s",
+                    banner.name,
+                    type(exc).__name__,
+                    exc,
+                )
+
+    if banner_rows:
+        await asyncio.gather(
+            *(
+                warm_banner(
+                    banner,
+                    first_pulled_at,
+                )
+                for (
+                    banner,
+                    first_pulled_at,
+                ) in banner_rows
+            )
+        )
+
+    try:
+        status = await asset_service.status()
+        result["cached_images"] = int(
+            status.get(
+                "cached_images",
+                result.get(
+                    "cached_images",
+                    0,
+                ),
+            )
+            or 0
+        )
+    except Exception:
+        pass
+
+    result["banners"] = len(
+        banner_rows
+    )
+    result["requested"] = (
+        int(
+            result.get(
+                "cards",
+                0,
+            )
+            or 0
+        )
+        + len(
+            banner_rows
+        )
+    )
+    result["banner_ready"] = (
+        banner_ready
+    )
+    result["banner_missing"] = (
+        banner_missing
+    )
+    result["banner_failed"] = (
+        banner_failed
+    )
+
+    logger.info(
+        "Database artwork warm complete | "
+        "cards=%s | banners=%s | "
+        "banner_ready=%s | banner_missing=%s | "
+        "banner_failed=%s | cached=%s",
+        result.get(
+            "cards",
+            0,
+        ),
+        len(
+            banner_rows
+        ),
+        banner_ready,
+        banner_missing,
+        banner_failed,
+        result.get(
+            "cached_images",
+            0,
+        ),
+    )
+
+    return result
 
 def _schedule(
     coroutine,

@@ -177,31 +177,37 @@ function rarityQuery(filters: Set<number>) {
 function ArtworkImage({
   kind,
   id,
+  recordId,
   alt,
   className = "",
 }: {
   kind: "card" | "banner";
   id: string | null | undefined;
+  recordId?: string | null;
   alt: string;
   className?: string;
 }) {
   const [failed, setFailed] = useState(false);
 
   const usable =
-    !!id &&
     !failed &&
     (
       kind === "card"
-        ? id.startsWith("card-")
-        : id.startsWith("gacha-")
+        ? !!id && id.startsWith("card-")
+        : !!recordId || (!!id && id.startsWith("gacha-"))
     );
 
   if (!usable) return null;
 
+  const src =
+    kind === "banner" && recordId
+      ? `${API}/api/assets/banner-record/${encodeURIComponent(recordId)}`
+      : `${API}/api/assets/${kind}/${encodeURIComponent(id || "")}`;
+
   return (
     <img
       className={className}
-      src={`${API}/api/assets/${kind}/${encodeURIComponent(id)}`}
+      src={src}
       alt={alt}
       loading="lazy"
       onError={() => setFailed(true)}
@@ -715,6 +721,7 @@ export default function Home() {
                     <ArtworkImage
                       kind="banner"
                       id={banner.game_banner_id}
+                      recordId={banner.id}
                       alt=""
                       className="artwork-fill"
                     />
@@ -922,7 +929,7 @@ function DashboardView({
       </section>
 
       <section className="two-column">
-        <div className="panel">
+        <div className="panel recent-five-panel">
           <div className="panel-title-row">
             <div>
               <p className="eyebrow">RECENT LUCK</p>
@@ -976,6 +983,7 @@ function DashboardView({
                     <ArtworkImage
                       kind="banner"
                       id={banner.game_banner_id}
+                      recordId={banner.id}
                       alt=""
                       className="artwork-fill"
                     />

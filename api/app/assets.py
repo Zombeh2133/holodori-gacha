@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime
 import io
 import re
 import tempfile
@@ -48,24 +49,48 @@ def _banner_candidates(
         or ""
     ).strip()
 
+    if not value:
+        return ()
+
+    candidates = [
+        "img_banner_full_"
+        + value
+        + "_lang-eng",
+        "img_banner_full_"
+        + value,
+    ]
+
     match = _GACHA_PICKUP_RE.fullmatch(
         value
     )
-    if not match:
-        return ()
 
-    date_code = match.group(2)
+    if match:
+        date_code = match.group(2)
 
-    # Same derived names Gii Murin already uses.
-    base = (
-        "img_banner_full_gacha-pickup-"
-        + date_code
-    )
+        # Normal and member-select pickup banners share the same full
+        # campaign artwork asset.
+        base = (
+            "img_banner_full_gacha-pickup-"
+            + date_code
+        )
 
-    return (
-        base + "_lang-eng",
-        base,
-    )
+        candidates = [
+            base + "_lang-eng",
+            base,
+            *candidates,
+        ]
+
+    ordered = []
+    seen = set()
+
+    for candidate in candidates:
+        key = candidate.casefold()
+        if not candidate or key in seen:
+            continue
+        seen.add(key)
+        ordered.append(candidate)
+
+    return tuple(ordered)
 
 
 def _score_card_catalog_name(
@@ -428,6 +453,217 @@ class AssetService:
             candidates
         )
 
+
+    async def resolve_banner_hinted(
+        self,
+        *,
+        game_banner_id: str,
+        banner_name: str = "",
+        banner_type: str = "",
+        first_pulled_at=None,
+    ):
+        direct = await self.resolve_banner(
+            game_banner_id
+        )
+        if direct is not None:
+            return direct
+
+        await self._load_catalog()
+
+        value = str(
+            game_banner_id
+            or ""
+        ).strip().casefold()
+        name = str(
+            banner_name
+            or ""
+        ).strip().casefold()
+        kind = str(
+            banner_type
+            or ""
+        ).strip().casefold()
+
+        prefixes = []
+
+        if (
+            "guaranteed" in name
+            or value.startswith(
+                "gacha-fixed-"
+            )
+        ):
+            prefixes.extend(
+                (
+                    "img_banner_full_gacha-fixed-",
+                    "img_banner_gacha-fixed-",
+                )
+            )
+
+        elif (
+            "new area celebration" in name
+            or value.startswith(
+                "gacha-area03"
+            )
+        ):
+            prefixes.extend(
+                (
+                    "img_banner_full_gacha-area03",
+                    "img_banner_gacha-area03",
+                )
+            )
+
+        elif (
+            name == "holodori gacha"
+            or value.startswith(
+                "gacha-common"
+            )
+            or kind == "standard"
+        ):
+            prefixes.extend(
+                (
+                    "img_banner_full_gacha-common",
+                    "img_banner_gacha-common",
+                )
+            )
+
+        elif (
+            "take your pick" in name
+            or "pickup" in value
+            or kind in {
+                "select",
+                "pickup",
+            }
+            or name.endswith(
+                "gacha"
+            )
+        ):
+            prefixes.extend(
+                (
+                    "img_banner_full_gacha-pickup-",
+                    "img_banner_gacha-pickup-",
+                )
+            )
+
+        if not prefixes:
+            return None
+
+        target_date = None
+        if first_pulled_at is not None:
+            try:
+                target_date = (
+                    first_pulled_at.date()
+                )
+            except AttributeError:
+                target_date = None
+
+        matches = []
+
+        for group, index in (
+            (
+                "assetbundles",
+                self._bundle_index,
+            ),
+            (
+                "resources",
+                self._resource_index,
+            ),
+        ):
+            for asset_name, entry in index.items():
+                lowered = str(
+                    asset_name
+                    or ""
+                ).casefold()
+
+                if not any(
+                    prefix in lowered
+                    for prefix in prefixes
+                ):
+                    continue
+
+                score = 0
+
+                if "img_banner_full_" in lowered:
+                    score += 2_000
+
+                if "_lang-eng" in lowered:
+                    score += 500
+
+                date_match = re.search(
+                    r"(?<!\\d)(\\d{6})(?!\\d)",
+                    lowered,
+                )
+
+                if (
+                    target_date is not None
+                    and date_match is not None
+                ):
+                    try:
+                        asset_date = datetime.strptime(
+                            date_match.group(1),
+                            "%y%m%d",
+                        ).date()
+                    except ValueError:
+                        asset_date = None
+
+                    if asset_date is not None:
+                        delta_days = (
+                            target_date
+                            - asset_date
+                        ).days
+
+                        if delta_days >= 0:
+                            score += (
+                                20_000
+                                - min(
+                                    delta_days,
+                                    10_000,
+                                )
+                            )
+                        else:
+                            score += (
+                                10_000
+                                - min(
+                                    abs(
+                                        delta_days
+                                    ),
+                                    9_000,
+                                )
+                            )
+
+                matches.append(
+                    (
+                        score,
+                        -len(
+                            lowered
+                        ),
+                        lowered,
+                        group,
+                        asset_name,
+                        entry,
+                    )
+                )
+
+        if not matches:
+            return None
+
+        matches.sort(
+            reverse=True
+        )
+
+        (
+            _score,
+            _length_score,
+            _lowered,
+            group,
+            asset_name,
+            entry,
+        ) = matches[0]
+
+        return (
+            group,
+            asset_name,
+            entry,
+        )
+
     async def resolve_card(
         self,
         card_id: str,
@@ -598,6 +834,39 @@ class AssetService:
         resolved = await self.resolve_banner(
             game_banner_id
         )
+        if resolved is None:
+            return None
+
+        return await self._cached_image(
+            "banner",
+            resolved,
+            max_size=(1200, 500),
+        )
+
+
+    async def get_banner_image_hinted(
+        self,
+        *,
+        game_banner_id: str,
+        banner_name: str = "",
+        banner_type: str = "",
+        first_pulled_at=None,
+    ) -> Path | None:
+        resolved = await self.resolve_banner_hinted(
+            game_banner_id=(
+                game_banner_id
+            ),
+            banner_name=(
+                banner_name
+            ),
+            banner_type=(
+                banner_type
+            ),
+            first_pulled_at=(
+                first_pulled_at
+            ),
+        )
+
         if resolved is None:
             return None
 

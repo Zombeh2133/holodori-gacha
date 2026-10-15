@@ -938,7 +938,7 @@ button { color: inherit; }
 
 /* Dashboard scroll regions */
 .scrollable-five-star-grid {
-  max-height: 420px;
+  max-height: 540px;
   overflow-y: auto;
   overflow-x: hidden;
   align-content: start;
@@ -968,5 +968,9 @@ button { color: inherit; }
 .scrollable-five-star-grid::-webkit-scrollbar-track,
 .scrollable-banner-list::-webkit-scrollbar-track {
   background: transparent;
+}
+
+.recent-five-panel {
+  min-height: 0;
 }
 
