@@ -1328,7 +1328,7 @@ function ImportView({
 
       const token = payload as LocalImportToken;
       setLocalCommand(
-        `.\\scripts\\import-holodori.ps1 -ImportToken "${token.token}"`,
+        `.\\scripts\\import-holodori.ps1 -ImportToken "${token.token}" -ApiBase "${API}"`,
       );
       setLocalTokenExpiry(token.expires_at);
     } catch (err) {
@@ -1543,4 +1543,5 @@ function EmptyState({ text }: { text: string }) {
     </div>
   );
 }
+
 
