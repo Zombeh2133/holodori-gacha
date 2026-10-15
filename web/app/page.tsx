@@ -190,15 +190,18 @@ try {
         credential = $credential
     } | ConvertTo-Json -Compress
 
-    $result = Invoke-RestMethod `
-        -Uri ($ApiBase.TrimEnd('/') + '/api/import/public-game') `
-        -Method Post `
-        -Headers @{
+    $request = @{
+        Uri = ($ApiBase.TrimEnd('/') + '/api/import/public-game')
+        Method = 'Post'
+        Headers = @{
             Authorization = ('Bearer ' + $ImportToken)
-        } `
-        -ContentType 'application/json' `
-        -Body $body `
-        -TimeoutSec 90
+        }
+        ContentType = 'application/json'
+        Body = $body
+        TimeoutSec = 90
+    }
+
+    $result = Invoke-RestMethod @request
 
     $credential = $null
     $body = $null
