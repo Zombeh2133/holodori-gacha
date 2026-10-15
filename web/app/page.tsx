@@ -1499,23 +1499,19 @@ function ImportView({
             disabled={localTokenLoading}
             onClick={generateLocalCommand}
           >
-            {localTokenLoading ? "Generating…" : "Generate PowerShell"}
+            {localTokenLoading ? "Generating…" : "Generate command"}
           </button>
         </div>
 
         {localCommand && (
           <div className="powershell-ready">
             <div>
-              <strong>PowerShell ready</strong>
-              <span>Click Copy PowerShell, paste it into Windows PowerShell, then press Enter.</span>
+              <strong>Command ready</strong>
+              <span>Copy it, paste it into Windows PowerShell, and press Enter.</span>
             </div>
             <button type="button" className="page-button" onClick={copyLocalCommand}>
-              {copiedCommand ? "Copied!" : "Copy PowerShell"}
+              {copiedCommand ? "Copied!" : "Copy command"}
             </button>
-            <details className="powershell-preview">
-              <summary>View PowerShell</summary>
-              <pre><code>{localCommand}</code></pre>
-            </details>
           </div>
         )}
 
