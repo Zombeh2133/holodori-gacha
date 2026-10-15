@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import uuid
 from collections import defaultdict
@@ -441,7 +441,7 @@ async def account_dashboard(
         pull
         for pull in scoped_pulls
         if pull.rarity >= 5
-    ][:20]
+    ][:30]
 
     recent_history = scoped_pulls[:30]
 

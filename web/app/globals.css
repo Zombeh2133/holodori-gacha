@@ -935,3 +935,38 @@ button { color: inherit; }
 .history-table .result-cell strong {
   line-height: 1.25;
 }
+
+/* Dashboard scroll regions */
+.scrollable-five-star-grid {
+  max-height: 420px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  align-content: start;
+  padding-right: 6px;
+  scrollbar-gutter: stable;
+}
+
+.scrollable-banner-list {
+  max-height: 540px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 6px;
+  scrollbar-gutter: stable;
+}
+
+.scrollable-five-star-grid::-webkit-scrollbar,
+.scrollable-banner-list::-webkit-scrollbar {
+  width: 7px;
+}
+
+.scrollable-five-star-grid::-webkit-scrollbar-thumb,
+.scrollable-banner-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, .14);
+  border-radius: 999px;
+}
+
+.scrollable-five-star-grid::-webkit-scrollbar-track,
+.scrollable-banner-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
