@@ -1404,6 +1404,7 @@ function ImportView({
   const [localTokenLoading, setLocalTokenLoading] = useState(false);
   const [localTokenError, setLocalTokenError] = useState("");
   const [copiedCommand, setCopiedCommand] = useState(false);
+  const [showCommandHelp, setShowCommandHelp] = useState(false);
 
   const stats = useMemo(() => {
     if (!preview) return null;
@@ -1493,25 +1494,67 @@ function ImportView({
               PowerShell, and press Enter. No downloads, GitHub clone, Python, irm, or iex.
             </p>
           </div>
-          <button
-            type="button"
-            className="primary-import-button compact local-token-button"
-            disabled={localTokenLoading}
-            onClick={generateLocalCommand}
-          >
-            {localTokenLoading ? "Generating…" : "Generate command"}
-          </button>
+          <div className="import-command-actions">
+            <button
+              type="button"
+              className="page-button import-help-button"
+              onClick={() => setShowCommandHelp((current) => !current)}
+            >
+              {showCommandHelp ? "Hide explanation" : "What does it do?"}
+            </button>
+            <button
+              type="button"
+              className="primary-import-button compact local-token-button"
+              disabled={localTokenLoading}
+              onClick={generateLocalCommand}
+            >
+              {localTokenLoading ? "Generating…" : "Generate command"}
+            </button>
+          </div>
         </div>
+
+        {showCommandHelp && (
+          <div className="import-command-help">
+            <strong>What this command does</strong>
+            <p>
+              It looks for the newest hololive Dreams DC* login file on this PC, reads
+              the account credential from it, and sends that credential over HTTPS to
+              the Holodori Gacha API for this import request.
+            </p>
+            <p>
+              The API uses the normal game login flow to identify the account, read the
+              available banner information, and fetch the Gacha Log. It then saves the
+              normalized pull history to the Holodori Gacha account you are signed in to.
+            </p>
+            <p>
+              The importer does not modify your game files, inventory, password, account
+              settings, or gacha history. The game credential is used for the import
+              request and is not written to the Holodori Gacha database.
+            </p>
+            <p>
+              The generated command also contains a short-lived Holodori Gacha import
+              token so the server knows which signed-in user should receive the pulls.
+              Keep the generated command private until that token expires.
+            </p>
+          </div>
+        )}
 
         {localCommand && (
           <div className="powershell-ready">
-            <div>
-              <strong>Command ready</strong>
-              <span>Copy it, paste it into Windows PowerShell, and press Enter.</span>
+            <div className="powershell-ready-copy">
+              <div>
+                <strong>Command ready</strong>
+                <span>Copy it, paste it into Windows PowerShell, and press Enter.</span>
+              </div>
+              <button type="button" className="page-button" onClick={copyLocalCommand}>
+                {copiedCommand ? "Copied!" : "Copy command"}
+              </button>
             </div>
-            <button type="button" className="page-button" onClick={copyLocalCommand}>
-              {copiedCommand ? "Copied!" : "Copy command"}
-            </button>
+
+            <div className="powershell-preview">
+              <div className="powershell-preview-label">PowerShell preview</div>
+              <pre><code>{localCommand}</code></pre>
+            </div>
           </div>
         )}
 
