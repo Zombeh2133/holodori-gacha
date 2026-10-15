@@ -11,6 +11,7 @@ from .api.health import router as health_router
 from .api.imports import router as import_router
 from .api.integrations import router as integrations_router
 from .api.me import router as me_router
+from .asset_warmup import schedule_database_asset_warm
 from .config import get_settings
 from .database import create_schema
 
@@ -18,6 +19,7 @@ from .database import create_schema
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await create_schema()
+    schedule_database_asset_warm()
     yield
 
 
@@ -74,5 +76,3 @@ app.include_router(me_router)
 app.include_router(dashboard_router)
 app.include_router(import_router)
 app.include_router(integrations_router)
-
-

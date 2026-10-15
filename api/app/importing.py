@@ -11,6 +11,7 @@ from typing import Iterable
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from .asset_warmup import schedule_asset_warm
 from .models import (
     DiscordIdentity,
     GameAccount,
@@ -680,8 +681,20 @@ async def save_normalized_import(
             ),
         )
     )
-
     await session.commit()
+
+    # Warm artwork in the persistent production cache after every import.
+    # This is deliberately background work so import responses stay fast.
+    schedule_asset_warm(
+        card_ids=(
+            pull.item_id
+            for pull in pulls
+        ),
+        banner_ids=(
+            pull.banner_key
+            for pull in pulls
+        ),
+    )
 
     return {
         "import_id": str(
@@ -704,3 +717,4 @@ async def save_normalized_import(
             duplicate_pulls
         ),
     }
+
