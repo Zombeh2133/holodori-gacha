@@ -93,15 +93,9 @@ def validate_credential(credential: str) -> str:
     return value
 
 
-def x_as_for_region(region: str) -> str:
-    region = str(region).upper()
-
+def x_as_value() -> str:
     return str(
         os.getenv(
-            f"HD_X_AS_{region}",
-            "",
-        )
-        or os.getenv(
             "HD_X_AS",
             "",
         )
@@ -1313,25 +1307,14 @@ def fetch_public_import_payload(
             "The website importer is temporarily unavailable. Please try again later."
         )
 
-    configured_regions = [
-        region
-        for region in REGION_ORDER
-        if x_as_for_region(region)
-    ]
+    x_as = x_as_value()
 
-    if not configured_regions:
+    if not x_as:
         raise PublicGameImportError(
             "The website importer is temporarily unavailable. Please try again later."
         )
 
-    for region in configured_regions:
-        x_as = x_as_for_region(
-            region
-        )
-
-        if not x_as:
-            continue
-
+    for region in REGION_ORDER:
         client = None
 
         try:
