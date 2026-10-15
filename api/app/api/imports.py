@@ -1,5 +1,6 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
 import hmac
@@ -18,6 +19,7 @@ from fastapi import (
     Request,
     status,
 )
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -32,11 +34,21 @@ from ..importing import (
     save_normalized_import,
     synthetic_banner_key,
 )
+from ..public_game_import import (
+    PublicGameImportError,
+    fetch_public_import_payload,
+)
 from ..models import DiscordIdentity
 from ..schemas import (
     SiteImportRequest,
     SiteImportResponse,
 )
+
+
+class PublicGameCredentialRequest(
+    BaseModel
+):
+    credential: str
 
 
 router = APIRouter(
@@ -704,6 +716,72 @@ async def import_local_game_pulls(
         source="local_game",
         default_importer_version=(
             "local-game-v1"
+        ),
+        session=session,
+    )
+
+
+@router.post(
+    "/public-game",
+    response_model=SiteImportResponse,
+)
+async def import_public_game(
+    payload: PublicGameCredentialRequest,
+    authorization: str = Header(
+        default="",
+        alias="Authorization",
+    ),
+    session: AsyncSession = Depends(
+        get_session
+    ),
+) -> SiteImportResponse:
+    token = _bearer_token(
+        authorization
+    )
+
+    if not token:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_401_UNAUTHORIZED
+            ),
+            detail="Missing import token",
+        )
+
+    (
+        user_id,
+        discord_user_id,
+    ) = _verify_local_import_token(
+        token
+    )
+
+    try:
+        normalized_payload = (
+            await asyncio.to_thread(
+                fetch_public_import_payload,
+                payload.credential,
+            )
+        )
+    except PublicGameImportError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=str(exc),
+        ) from exc
+
+    site_payload = (
+        SiteImportRequest.model_validate(
+            normalized_payload
+        )
+    )
+
+    return await _perform_site_import(
+        site_payload,
+        user_id=user_id,
+        discord_user_id=(
+            discord_user_id
+        ),
+        source="public_powershell",
+        default_importer_version=(
+            "public-powershell-v1"
         ),
         session=session,
     )

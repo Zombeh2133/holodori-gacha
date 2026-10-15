@@ -974,3 +974,70 @@ button { color: inherit; }
   min-height: 0;
 }
 
+
+
+/* Friendly public PowerShell importer */
+.powershell-ready {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px 14px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid rgba(101, 220, 255, .20);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, .18);
+}
+
+.powershell-ready > div {
+  display: grid;
+  gap: 3px;
+}
+
+.powershell-ready strong {
+  color: #e7f9ff;
+  font-size: .76rem;
+}
+
+.powershell-ready span {
+  color: var(--muted);
+  font-size: .68rem;
+}
+
+.powershell-preview {
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+
+.powershell-preview summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: .67rem;
+  font-weight: 700;
+}
+
+.powershell-preview pre {
+  max-height: 280px;
+  margin: 10px 0 0;
+  overflow: auto;
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, .24);
+}
+
+.powershell-preview code {
+  color: #dff7ff;
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  font-size: .68rem;
+  white-space: pre;
+}
+
+@media (max-width: 760px) {
+  .powershell-ready {
+    grid-template-columns: 1fr;
+  }
+
+  .powershell-ready .page-button {
+    width: 100%;
+  }
+}

@@ -135,6 +135,105 @@ type LocalImportToken = {
 
 type ViewName = "dashboard" | "history" | "import";
 
+
+function buildPublicPowerShell(
+  token: string,
+) {
+  const psQuote = (value: string) => value.replace(/'/g, "''");
+  const apiBase = psQuote(API);
+  const importToken = psQuote(token);
+
+  return `$ErrorActionPreference = 'Stop'
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+$ApiBase = '${apiBase}'
+$ImportToken = '${importToken}'
+
+Write-Host ''
+Write-Host 'Holodori Gacha Importer' -ForegroundColor Cyan
+Write-Host '=======================' -ForegroundColor Cyan
+Write-Host ''
+
+$credential = $null
+$body = $null
+
+try {
+    Write-Host '[1/3] Finding your hololive Dreams account...' -ForegroundColor Cyan
+
+    $root = Join-Path $env:USERPROFILE 'AppData\\LocalLow\\QualiArts, Inc_\\hololive-Dreams'
+
+    if (-not (Test-Path -LiteralPath $root)) {
+        throw 'hololive Dreams was not found. Launch the game and log in first.'
+    }
+
+    $dcFile = Get-ChildItem -LiteralPath $root -File -ErrorAction Stop |
+        Where-Object { $_.Name -like 'DC*' } |
+        Sort-Object LastWriteTimeUtc -Descending |
+        Select-Object -First 1
+
+    if ($null -eq $dcFile) {
+        throw 'No logged-in hololive Dreams account was found. Launch the game and log in first.'
+    }
+
+    $credential = [System.IO.File]::ReadAllText($dcFile.FullName)
+    $credential = $credential.Trim([char]0xFEFF).Trim()
+
+    if ([string]::IsNullOrWhiteSpace($credential)) {
+        throw 'The hololive Dreams account file was empty.'
+    }
+
+    Write-Host '      Account found.' -ForegroundColor Green
+    Write-Host ''
+    Write-Host '[2/3] Fetching your Gacha Log...' -ForegroundColor Cyan
+
+    $body = @{
+        credential = $credential
+    } | ConvertTo-Json -Compress
+
+    $result = Invoke-RestMethod `
+        -Uri ($ApiBase.TrimEnd('/') + '/api/import/public-game') `
+        -Method Post `
+        -Headers @{
+            Authorization = ('Bearer ' + $ImportToken)
+        } `
+        -ContentType 'application/json' `
+        -Body $body `
+        -TimeoutSec 90
+
+    $credential = $null
+    $body = $null
+
+    Write-Host '      Gacha Log received.' -ForegroundColor Green
+    Write-Host ''
+    Write-Host '[3/3] Import complete!' -ForegroundColor Green
+    Write-Host ''
+    Write-Host ('Region:     ' + [string]$result.region)
+    Write-Host ('Submitted:  ' + [string]$result.total_pulls)
+    Write-Host ('New:        ' + [string]$result.new_pulls) -ForegroundColor Green
+    Write-Host ('Duplicates: ' + [string]$result.duplicate_pulls) -ForegroundColor Yellow
+    Write-Host ''
+    Write-Host 'Refresh Holodori Gacha to see your updated history.' -ForegroundColor Cyan
+}
+catch {
+    Write-Host ''
+    Write-Host 'Import failed:' -ForegroundColor Red
+    Write-Host $_.Exception.Message -ForegroundColor Red
+
+    if ($_.Exception.Message -match '401|token|expired') {
+        Write-Host ''
+        Write-Host 'Generate a fresh PowerShell script from the website and try again.' -ForegroundColor Yellow
+    }
+}
+finally {
+    $credential = $null
+    $body = $null
+    Remove-Variable ImportToken -ErrorAction SilentlyContinue
+}
+
+Write-Host ''
+`;
+}
+
 function initials(value: string) {
   const chunks = value.trim().split(/\s+/).filter(Boolean);
   return (chunks.slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "?").slice(0, 2);
@@ -1354,7 +1453,9 @@ function ImportView({
 
       const token = payload as LocalImportToken;
       setLocalCommand(
-        `.\\scripts\\import-holodori.ps1 -ImportToken "${token.token}" -ApiBase "${API}"`,
+        buildPublicPowerShell(
+          token.token,
+        ),
       );
       setLocalTokenExpiry(token.expires_at);
     } catch (err) {
@@ -1382,12 +1483,11 @@ function ImportView({
       <div className="panel local-import-panel">
         <div className="local-import-heading">
           <div>
-            <p className="eyebrow">AUTOMATIC IMPORT</p>
+            <p className="eyebrow">POWERSHELL IMPORT</p>
             <h2>Import directly from hololive Dreams</h2>
             <p className="muted">
-              Generate a short-lived command, run it from the Holodori Gacha project
-              folder, and the local importer will read the newest DC* file and fetch
-              your Gacha Log from the official game API.
+              Generate a short-lived PowerShell script, copy it, paste it into Windows
+              PowerShell, and press Enter. No downloads, GitHub clone, Python, irm, or iex.
             </p>
           </div>
           <button
@@ -1396,23 +1496,30 @@ function ImportView({
             disabled={localTokenLoading}
             onClick={generateLocalCommand}
           >
-            {localTokenLoading ? "Generating…" : "Generate command"}
+            {localTokenLoading ? "Generating…" : "Generate PowerShell"}
           </button>
         </div>
 
         {localCommand && (
-          <div className="local-command-wrap">
-            <code>{localCommand}</code>
+          <div className="powershell-ready">
+            <div>
+              <strong>PowerShell ready</strong>
+              <span>Click Copy PowerShell, paste it into Windows PowerShell, then press Enter.</span>
+            </div>
             <button type="button" className="page-button" onClick={copyLocalCommand}>
-              {copiedCommand ? "Copied" : "Copy"}
+              {copiedCommand ? "Copied!" : "Copy PowerShell"}
             </button>
+            <details className="powershell-preview">
+              <summary>View PowerShell</summary>
+              <pre><code>{localCommand}</code></pre>
+            </details>
           </div>
         )}
 
         {localTokenExpiry && (
           <p className="local-token-expiry">
-            Import token expires {prettyDate(localTokenExpiry)}. Generate a new command
-            if it expires before you run it.
+            This PowerShell script expires {prettyDate(localTokenExpiry)}. Generate a
+            fresh one next time you import.
           </p>
         )}
 
