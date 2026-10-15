@@ -8,3 +8,4 @@ httpx>=0.28,<1
 itsdangerous>=2.2,<3
 Pillow>=10,<13
 pycryptodome>=3.20,<4
+holodori-asset-tools @ git+https://github.com/HolodoriDB/holodori-asset-tools.git@13f150fe9dfbd367be53e5ea1c0a4ceb258b74f2
