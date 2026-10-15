@@ -133,7 +133,7 @@ type LocalImportToken = {
   expires_in_seconds: number;
 };
 
-type ViewName = "dashboard" | "history" | "import" | "faq";
+type ViewName = "dashboard" | "history" | "import" | "faq" | "privacy";
 
 
 function buildPublicPowerShell(
@@ -762,6 +762,12 @@ export default function Home() {
           >
             FAQ
           </button>
+          <button
+            className={activeView === "privacy" ? "nav-active" : ""}
+            onClick={() => setActiveView("privacy")}
+          >
+            Privacy
+          </button>
         </nav>
 
         <div className="user-area">
@@ -777,6 +783,39 @@ export default function Home() {
           </a>
         </div>
       </header>
+
+      <nav className="mobile-nav" aria-label="Mobile navigation">
+        <button
+          className={activeView === "dashboard" ? "nav-active" : ""}
+          onClick={() => setActiveView("dashboard")}
+        >
+          Dashboard
+        </button>
+        <button
+          className={activeView === "history" ? "nav-active" : ""}
+          onClick={() => setActiveView("history")}
+        >
+          History
+        </button>
+        <button
+          className={activeView === "import" ? "nav-active" : ""}
+          onClick={() => setActiveView("import")}
+        >
+          Import
+        </button>
+        <button
+          className={activeView === "faq" ? "nav-active" : ""}
+          onClick={() => setActiveView("faq")}
+        >
+          FAQ
+        </button>
+        <button
+          className={activeView === "privacy" ? "nav-active" : ""}
+          onClick={() => setActiveView("privacy")}
+        >
+          Privacy
+        </button>
+      </nav>
 
       <div className="workspace">
         <aside className="sidebar">
@@ -934,8 +973,10 @@ export default function Home() {
               onImport={submitImport}
               onViewDashboard={() => setActiveView("dashboard")}
             />
-          ) : (
+          ) : activeView === "faq" ? (
             <FaqView />
+          ) : (
+            <PrivacyView />
           )}
         </section>
       </div>
@@ -1828,6 +1869,196 @@ function FaqView() {
             account keeps its own banners, totals, pull history, and spark progress.
           </p>
         </details>
+      </div>
+    </section>
+  );
+}
+
+
+function PrivacyView() {
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteText, setDeleteText] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
+  async function deleteMyData() {
+    if (
+      deleting
+      || deleteText !== "DELETE"
+    ) {
+      return;
+    }
+
+    setDeleting(true);
+    setDeleteError("");
+
+    try {
+      const response = await fetch(
+        `${API}/api/me/data`,
+        {
+          method: "DELETE",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            confirmation: "DELETE",
+          }),
+        },
+      );
+
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(
+          typeof payload?.detail === "string"
+            ? payload.detail
+            : `Delete request failed (${response.status})`,
+        );
+      }
+
+      window.location.assign("/");
+    } catch (err) {
+      setDeleteError(
+        err instanceof Error
+          ? err.message
+          : "Your data could not be deleted.",
+      );
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <section className="privacy-layout">
+      <div className="panel privacy-intro">
+        <p className="eyebrow">PRIVACY</p>
+        <h2>Your data on Holodori Gacha</h2>
+        <p className="muted">
+          Holodori Gacha stores only the information needed to identify your site account
+          and build your pull-history tracker.
+        </p>
+      </div>
+
+      <div className="privacy-grid">
+        <div className="panel privacy-card">
+          <p className="eyebrow">STORED</p>
+          <h2>What we keep</h2>
+          <ul>
+            <li>Your Discord user ID used to link your site account.</li>
+            <li>Your hololive Dreams game account ID, region, and imported nickname.</li>
+            <li>Your normalized pull history: banner, card, rarity, and draw time.</li>
+            <li>Import summaries such as total, new, and duplicate pulls.</li>
+          </ul>
+        </div>
+
+        <div className="panel privacy-card">
+          <p className="eyebrow">NOT STORED</p>
+          <h2>What we do not keep</h2>
+          <ul>
+            <li>Discord OAuth access or refresh tokens.</li>
+            <li>Your hololive Dreams DC* game credential in the database.</li>
+            <li>Your Discord password or hololive Dreams password.</li>
+            <li>The ability to spend currency, perform pulls, or change your game account.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div className="panel privacy-card">
+        <p className="eyebrow">IMPORTS</p>
+        <h2>What happens during a PowerShell import?</h2>
+        <p>
+          The generated command reads the newest hololive Dreams DC* credential on your PC
+          and sends it over HTTPS to the Holodori Gacha API for that import request. The API
+          uses it to retrieve your account information and Gacha Log, converts the results
+          into tracker data, and stores the normalized pull history. The credential itself is
+          not written to the Holodori Gacha database.
+        </p>
+        <p>
+          The generated command also contains a short-lived site import token that tells the
+          API which signed-in Holodori Gacha user should receive the imported pulls.
+        </p>
+      </div>
+
+      <div className="panel privacy-card">
+        <p className="eyebrow">DISCORD</p>
+        <h2>Why Discord is used</h2>
+        <p>
+          Discord is used as the site identity layer so imported data can be attached to the
+          correct user. Holodori Gacha requests Discord&apos;s identify scope. The OAuth token
+          used during sign-in is not stored by Holodori Gacha.
+        </p>
+        <p>
+          If Gii Murin previously synchronized gacha history for your Discord ID, signing in
+          lets the site claim that matching history for you.
+        </p>
+      </div>
+
+      <div className="panel danger-zone">
+        <p className="eyebrow">DANGER ZONE</p>
+        <h2>Delete my data</h2>
+        <p>
+          This permanently deletes your Holodori Gacha site user, Discord identity link,
+          linked game accounts, imported pull history, and import records. Shared banner
+          metadata and cached artwork are not personal data and are not removed.
+        </p>
+        <p>
+          You will be signed out. If you later sign in, import again, or use a Gii Murin
+          workflow that sends new data for your Discord ID, a new site record can be created.
+        </p>
+
+        {!confirmingDelete ? (
+          <button
+            type="button"
+            className="danger-button"
+            onClick={() => {
+              setConfirmingDelete(true);
+              setDeleteError("");
+            }}
+          >
+            Delete my data
+          </button>
+        ) : (
+          <div className="delete-confirmation">
+            <strong>This cannot be undone.</strong>
+            <span>Type DELETE to permanently remove your stored Holodori Gacha data.</span>
+            <input
+              type="text"
+              value={deleteText}
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="Type DELETE"
+              onChange={(event) => setDeleteText(event.target.value)}
+            />
+            <div className="delete-confirmation-actions">
+              <button
+                type="button"
+                className="page-button"
+                disabled={deleting}
+                onClick={() => {
+                  setConfirmingDelete(false);
+                  setDeleteText("");
+                  setDeleteError("");
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="danger-button"
+                disabled={deleting || deleteText !== "DELETE"}
+                onClick={deleteMyData}
+              >
+                {deleting ? "Deleting…" : "Permanently delete my data"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {deleteError && (
+          <div className="error-box privacy-delete-error">
+            {deleteError}
+          </div>
+        )}
       </div>
     </section>
   );
