@@ -1,0 +1,35 @@
+.env
+.env.*
+!.env.example
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+node_modules/
+.next/
+out/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
+
+# Local/generated data
+data/import-preview/
+data/local-importer-cache/
+data/asset-cache/
+data/local-importer-device.json
+data/local-importer-accounts.json
+
+# No documentation/instruction files in repo
+*.md
+*.txt
+
+# Downloaded/extracted game artwork cache
+data/asset-cache/
+
+!api/requirements.txt
