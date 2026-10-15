@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import base64
 import hashlib
@@ -572,6 +572,7 @@ async def _perform_site_import(
                     infer_banner_type(
                         banner_key,
                         pull.banner_type,
+                        banner_name,
                     )
                 ),
                 item_id=str(
@@ -738,3 +739,4 @@ async def import_site_pulls(
         ),
         session=session,
     )
+

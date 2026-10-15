@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import secrets
 from datetime import timezone
@@ -121,6 +121,7 @@ async def import_from_gii_murin(
                     infer_banner_type(
                         pull.game_banner_id,
                         pull.banner_type,
+                        pull.banner_name,
                     )
                 ),
                 item_id=pull.item_id,
@@ -182,3 +183,4 @@ async def import_from_gii_murin(
             "duplicate_pulls"
         ],
     )
+

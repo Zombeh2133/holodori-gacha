@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { characterNameFromCardId } from "./characterMap";
@@ -151,6 +151,24 @@ function prettyDate(value: string | null) {
   }).format(new Date(value));
 }
 
+function bannerTypeLabel(value: string | null | undefined) {
+  switch ((value || "").trim().toLowerCase()) {
+    case "select":
+      return "Member Select";
+    case "pickup":
+      return "Standard Pickup";
+    case "standard":
+      return "Standard";
+    case "guaranteed":
+      return "Guaranteed";
+    case "collaboration":
+      return "Collaboration";
+    case "beginner":
+      return "Beginner";
+    default:
+      return "Gacha";
+  }
+}
 function rarityQuery(filters: Set<number>) {
   return Array.from(filters).sort((a, b) => a - b).join(",");
 }
@@ -556,7 +574,7 @@ export default function Home() {
     return (
       <main className="center-screen">
         <div className="loader" />
-        Loading Holodori Gacha…
+        Loading Holodori Gachaâ€¦
       </main>
     );
   }
@@ -704,11 +722,11 @@ export default function Home() {
                   </div>
                   <div className="sidebar-banner-copy">
                     <strong>{banner.name}</strong>
-                    <span>{banner.banner_type}</span>
+                    <span>{bannerTypeLabel(banner.banner_type)}</span>
                   </div>
                   <div className="sidebar-banner-pity">
                     <strong>{banner.current_five_star_pity}</strong>
-                    <span>5★ pity</span>
+                    <span>5â˜… pity</span>
                   </div>
                 </button>
               ))}
@@ -722,14 +740,14 @@ export default function Home() {
           <div className="hero-row">
             <div>
               <p className="eyebrow">
-                {selectedBannerData ? selectedBannerData.banner_type.toUpperCase() : `${selected?.region || "—"} ACCOUNT`}
+                {selectedBannerData ? bannerTypeLabel(selectedBannerData.banner_type).toUpperCase() : `${selected?.region || "â€”"} ACCOUNT`}
               </p>
               <h1>
                 {selectedBannerData?.name || selected?.nickname || "Gacha Dashboard"}
               </h1>
               <p className="muted">
                 {selectedBannerData
-                  ? `${selected?.nickname || selected?.game_account_id || "Account"} · ${selectedBannerData.total_pulls} pulls on this banner`
+                  ? `${selected?.nickname || selected?.game_account_id || "Account"} Â· ${selectedBannerData.total_pulls} pulls on this banner`
                   : "Track lifetime pulls, pity, banners, and recent high-rarity results."}
               </p>
             </div>
@@ -739,7 +757,7 @@ export default function Home() {
                 <span>Last synchronized</span>
                 <strong>{prettyDate(dashboard.latest_import.imported_at)}</strong>
                 <small>
-                  {dashboard.latest_import.new_pulls} new · {dashboard.latest_import.duplicate_pulls} duplicates ignored
+                  {dashboard.latest_import.new_pulls} new Â· {dashboard.latest_import.duplicate_pulls} duplicates ignored
                 </small>
               </div>
             )}
@@ -819,7 +837,7 @@ function DashboardView({
     return (
       <div className="panel loading-panel">
         <div className="loader" />
-        Loading account statistics…
+        Loading account statisticsâ€¦
       </div>
     );
   }
@@ -828,7 +846,7 @@ function DashboardView({
     return (
       <div className="panel loading-panel">
         <div className="loader" />
-        Loading account statistics…
+        Loading account statisticsâ€¦
       </div>
     );
   }
@@ -878,13 +896,13 @@ function DashboardView({
           hint={`${dashboard.stats.banner_count} banner${dashboard.stats.banner_count === 1 ? "" : "s"}`}
         />
         <StatCard
-          label="5★ Pulls"
+          label="5â˜… Pulls"
           value={dashboard.stats.five_star_pulls}
           accent="gold"
           hint={selectedBanner ? "Selected banner" : "Lifetime"}
         />
         <StatCard
-          label="4★ Pulls"
+          label="4â˜… Pulls"
           value={dashboard.stats.four_star_pulls}
           accent="purple"
           hint={selectedBanner ? "Selected banner" : "Lifetime"}
@@ -893,7 +911,7 @@ function DashboardView({
           label="Pulls Needed Till Spark"
           value={pullsNeededTillSpark}
           accent="blue"
-          hint={selectedBanner ? "Selected banner · 200 pulls per spark" : "Closest banner · 200 pulls per spark"}
+          hint={selectedBanner ? "Selected banner Â· 200 pulls per spark" : "Closest banner Â· 200 pulls per spark"}
         />
         <StatCard
           label="Sparked"
@@ -908,7 +926,7 @@ function DashboardView({
           <div className="panel-title-row">
             <div>
               <p className="eyebrow">RECENT LUCK</p>
-              <h2>Recent 5★ Pulls</h2>
+              <h2>Recent 5â˜… Pulls</h2>
             </div>
             <span className="soft-badge">{dashboard.recent_five_star_pulls.length} shown</span>
           </div>
@@ -928,12 +946,12 @@ function DashboardView({
                   </div>
                   <strong>{pull.item_name}</strong>
                   <span>{pull.banner.name}</span>
-                  <div className="rarity-line">★★★★★</div>
+                  <div className="rarity-line">â˜…â˜…â˜…â˜…â˜…</div>
                 </div>
               ))}
             </div>
           ) : (
-            <EmptyState text="No 5★ pulls have been imported for this selection yet." />
+            <EmptyState text="No 5â˜… pulls have been imported for this selection yet." />
           )}
         </div>
 
@@ -965,11 +983,11 @@ function DashboardView({
                   </div>
                   <div className="banner-copy">
                     <strong>{banner.name}</strong>
-                    <span>{banner.banner_type} · {banner.total_pulls} pulls</span>
+                    <span>{bannerTypeLabel(banner.banner_type)} Â· {banner.total_pulls} pulls</span>
                   </div>
                   <div className="pity-number">
                     <strong>{banner.current_five_star_pity}</strong>
-                    <span>5★ pity</span>
+                    <span>5â˜… pity</span>
                   </div>
                 </button>
               ))}
@@ -988,7 +1006,7 @@ function DashboardView({
           </div>
           {dashboardHistory && (
             <span className="soft-badge">
-              {dashboardHistory.rows.length} shown · {dashboardHistory.total} matching
+              {dashboardHistory.rows.length} shown Â· {dashboardHistory.total} matching
             </span>
           )}
         </div>
@@ -996,7 +1014,7 @@ function DashboardView({
         {dashboardHistoryLoading && !dashboardHistory ? (
           <div className="dashboard-history-loading">
             <div className="loader" />
-            Loading pull history…
+            Loading pull historyâ€¦
           </div>
         ) : dashboardHistory ? (
           <>
@@ -1016,7 +1034,7 @@ function DashboardView({
                     setDashboardHistoryPage(Math.max(1, dashboardHistoryPage - 1))
                   }
                 >
-                  ← Previous
+                  â† Previous
                 </button>
 
                 <span>
@@ -1040,7 +1058,7 @@ function DashboardView({
                     )
                   }
                 >
-                  Next →
+                  Next â†’
                 </button>
               </div>
             )}
@@ -1087,7 +1105,7 @@ function HistoryView({
           <p className="eyebrow">FULL HISTORY</p>
           <h2>{selectedBannerData ? selectedBannerData.name : "All Pulls"}</h2>
           <p className="history-subtitle">
-            30 results per page · 3★ results are hidden by default.
+            30 results per page Â· 3â˜… results are hidden by default.
           </p>
         </div>
 
@@ -1102,7 +1120,7 @@ function HistoryView({
       {loading && !history ? (
         <div className="history-loading">
           <div className="loader" />
-          Loading pull history…
+          Loading pull historyâ€¦
         </div>
       ) : history ? (
         <>
@@ -1119,7 +1137,7 @@ function HistoryView({
               disabled={history.page <= 1 || loading}
               onClick={() => setPage(Math.max(1, page - 1))}
             >
-              ← Previous
+              â† Previous
             </button>
 
             <span>
@@ -1132,14 +1150,14 @@ function HistoryView({
               disabled={history.page >= history.total_pages || loading}
               onClick={() => setPage(Math.min(history.total_pages, page + 1))}
             >
-              Next →
+              Next â†’
             </button>
           </div>
         </>
       ) : (
         <div className="history-loading">
           <div className="loader" />
-          Loading pull history…
+          Loading pull historyâ€¦
         </div>
       )}
     </section>
@@ -1172,9 +1190,9 @@ function PullTable({
                     className={`rarity-filter-button rarity-${rarity} ${rarityFilters.has(rarity) ? "active" : ""}`}
                     aria-pressed={rarityFilters.has(rarity)}
                     onClick={() => toggleRarity(rarity)}
-                    title={`${rarity}★ ${rarityFilters.has(rarity) ? "shown" : "hidden"}`}
+                    title={`${rarity}â˜… ${rarityFilters.has(rarity) ? "shown" : "hidden"}`}
                   >
-                    {rarity}★
+                    {rarity}â˜…
                   </button>
                 ))}
               </div>
@@ -1208,7 +1226,7 @@ function PullTable({
               </td>
               <td>
                 <span className={`rarity-badge rarity-${pull.rarity}`}>
-                  {pull.rarity}★
+                  {pull.rarity}â˜…
                 </span>
               </td>
               <td>
@@ -1370,7 +1388,7 @@ function ImportView({
             disabled={localTokenLoading}
             onClick={generateLocalCommand}
           >
-            {localTokenLoading ? "Generating…" : "Generate command"}
+            {localTokenLoading ? "Generatingâ€¦" : "Generate command"}
           </button>
         </div>
 
@@ -1412,14 +1430,14 @@ function ImportView({
               accept=".json,application/json"
               onChange={(event) => onFile(event.target.files?.[0] || null)}
             />
-            <div className="file-drop-icon">⇧</div>
+            <div className="file-drop-icon">â‡§</div>
             <strong>{filename || "Choose JSON export"}</strong>
             <span>Nothing is uploaded until you review the preview and press Import.</span>
           </label>
 
           <div className="upload-safety">
             <span>Uploaded</span>
-            <strong>Region · game account ID · banner · card · rarity · draw time</strong>
+            <strong>Region Â· game account ID Â· banner Â· card Â· rarity Â· draw time</strong>
           </div>
           {error && <div className="error-box import-error">{error}</div>}
         </div>
@@ -1449,9 +1467,9 @@ function ImportView({
               <div className="import-stat-grid">
                 <ImportMetric label="Pulls" value={stats.total} />
                 <ImportMetric label="Banners" value={stats.banners} />
-                <ImportMetric label="5★" value={stats.five} accent="gold" />
-                <ImportMetric label="4★" value={stats.four} accent="purple" />
-                <ImportMetric label="3★" value={stats.three} accent="blue" />
+                <ImportMetric label="5â˜…" value={stats.five} accent="gold" />
+                <ImportMetric label="4â˜…" value={stats.four} accent="purple" />
+                <ImportMetric label="3â˜…" value={stats.three} accent="blue" />
               </div>
 
               <div className="import-range">
@@ -1471,7 +1489,7 @@ function ImportView({
                 disabled={importing}
                 onClick={onImport}
               >
-                {importing ? "Importing…" : `Import ${stats.total} pulls`}
+                {importing ? "Importingâ€¦" : `Import ${stats.total} pulls`}
               </button>
             </>
           )}
@@ -1480,7 +1498,7 @@ function ImportView({
 
       {result && (
         <div className="panel import-result-panel">
-          <div className="result-check">✓</div>
+          <div className="result-check">âœ“</div>
           <div>
             <p className="eyebrow">IMPORT COMPLETE</p>
             <h2>{result.new_pulls} new pulls added</h2>
@@ -1538,10 +1556,11 @@ function StatCard({
 function EmptyState({ text }: { text: string }) {
   return (
     <div className="empty-state">
-      <div className="empty-orb">✦</div>
+      <div className="empty-orb">âœ¦</div>
       <p>{text}</p>
     </div>
   );
 }
+
 
 

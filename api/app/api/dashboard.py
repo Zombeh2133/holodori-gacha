@@ -90,6 +90,78 @@ def _parse_rarities(value: str | None) -> list[int]:
     return result
 
 
+def _display_banner_type(
+    banner: GachaBanner | None,
+) -> str:
+    if banner is None:
+        return "unknown"
+
+    value = str(
+        banner.game_banner_id
+        or ""
+    ).strip().casefold()
+    name = str(
+        banner.name
+        or ""
+    ).strip().casefold()
+    stored = str(
+        banner.banner_type
+        or ""
+    ).strip().casefold()
+
+    if (
+        "take your pick" in name
+        or "pickup-select" in value
+        or stored == "select"
+    ):
+        return "select"
+
+    if (
+        "guaranteed" in name
+        or stored == "guaranteed"
+    ):
+        return "guaranteed"
+
+    if (
+        name == "holodori gacha"
+        or "common" in value
+        or stored == "standard"
+    ):
+        return "standard"
+
+    if (
+        "pickup-normal" in value
+        or (
+            "pickup" in value
+            and "select" not in value
+        )
+        or stored == "pickup"
+    ):
+        return "pickup"
+
+    if (
+        "collab" in value
+        or stored == "collaboration"
+    ):
+        return "collaboration"
+
+    if (
+        "beginner" in value
+        or stored == "beginner"
+    ):
+        return "beginner"
+
+    if (
+        value.startswith("history-name-")
+        and name.endswith("gacha")
+    ):
+        return "pickup"
+
+    if stored and stored != "unknown":
+        return stored
+
+    return "gacha"
+
 def _pity_summary(
     pulls: list[GachaPull],
     banners: dict[uuid.UUID, GachaBanner],
@@ -139,11 +211,7 @@ def _pity_summary(
                     if banner
                     else "Unknown Banner"
                 ),
-                "banner_type": (
-                    banner.banner_type
-                    if banner
-                    else "unknown"
-                ),
+                "banner_type": _display_banner_type(banner),
                 "total_pulls": len(ordered),
                 "five_star_count": five_star_count,
                 "four_star_count": four_star_count,
@@ -203,11 +271,7 @@ def _pull_row(
                 if banner
                 else "Unknown Banner"
             ),
-            "banner_type": (
-                banner.banner_type
-                if banner
-                else "unknown"
-            ),
+            "banner_type": _display_banner_type(banner),
         },
     }
 
@@ -406,7 +470,9 @@ async def account_dashboard(
                 ),
                 "name": selected_banner.name,
                 "banner_type": (
-                    selected_banner.banner_type
+                    _display_banner_type(
+                        selected_banner
+                    )
                 ),
             }
             if selected_banner
@@ -632,4 +698,5 @@ async def account_history(
             for pull in rows
         ],
     }
+
 

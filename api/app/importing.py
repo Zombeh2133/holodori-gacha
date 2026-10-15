@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import hashlib
 import re
@@ -124,7 +124,7 @@ def infer_rarity(
         if 1 <= rarity <= 10:
             return rarity
 
-    # Holodori Gacha currently uses 3★/4★/5★ cards, but do not silently
+    # Holodori Gacha currently uses 3â˜…/4â˜…/5â˜… cards, but do not silently
     # classify an unknown ID as one of them.
     return 0
 
@@ -153,32 +153,85 @@ def synthetic_banner_key(
 def infer_banner_type(
     game_banner_id: str,
     fallback: str | None = None,
+    banner_name: str | None = None,
 ) -> str:
-    fallback_value = str(
-        fallback
-        or ""
-    ).strip()
-
-    if (
-        fallback_value
-        and fallback_value.casefold()
-        != "unknown"
-    ):
-        return fallback_value
-
     value = str(
         game_banner_id
         or ""
-    ).casefold()
+    ).strip().casefold()
+    name = str(
+        banner_name
+        or ""
+    ).strip().casefold()
+    fallback_value = str(
+        fallback
+        or ""
+    ).strip().casefold()
 
-    if "collab" in value:
-        return "collaboration"
-    if "beginner" in value:
-        return "beginner"
-    if "common" in value:
+    # "Take your pick!" banners let the player select one member for rate-up.
+    if (
+        "take your pick" in name
+        or "pickup-select" in value
+        or fallback_value == "select"
+    ):
+        return "select"
+
+    # Guaranteed banners are separate from normal rate-up banners.
+    if (
+        "guaranteed" in name
+        or fallback_value == "guaranteed"
+    ):
+        return "guaranteed"
+
+    # Permanent holodori Gacha is the standard pool.
+    if (
+        name == "holodori gacha"
+        or "common" in value
+        or fallback_value == "standard"
+    ):
         return "standard"
-    if "pickup" in value:
+
+    if (
+        "pickup-normal" in value
+        or (
+            "pickup" in value
+            and "select" not in value
+        )
+        or fallback_value == "pickup"
+    ):
         return "pickup"
+
+    if (
+        "collab" in value
+        or fallback_value == "collaboration"
+    ):
+        return "collaboration"
+
+    if (
+        "beginner" in value
+        or fallback_value == "beginner"
+    ):
+        return "beginner"
+
+    # Historical Gii Murin rows can have a synthetic banner ID because the
+    # original banner is no longer returned by live Gacha/List. Their names
+    # still distinguish select/guaranteed above; remaining named Gacha banners
+    # are the normal shared-rate pickup variant.
+    if (
+        value.startswith("history-name-")
+        and name.endswith("gacha")
+    ):
+        return "pickup"
+
+    if (
+        fallback_value
+        and fallback_value
+        not in {
+            "unknown",
+            "gacha",
+        }
+    ):
+        return fallback_value
 
     return "gacha"
 
@@ -717,4 +770,5 @@ async def save_normalized_import(
             duplicate_pulls
         ),
     }
+
 
