@@ -38,7 +38,7 @@ app.add_middleware(
     SessionMiddleware,
     secret_key=settings.session_secret,
     session_cookie="holodori_gacha_session",
-    same_site="lax",
+    same_site="none",
     https_only=settings.session_https_only,
     max_age=60 * 60 * 24 * 30,
 )
@@ -74,4 +74,5 @@ app.include_router(me_router)
 app.include_router(dashboard_router)
 app.include_router(import_router)
 app.include_router(integrations_router)
+
 
