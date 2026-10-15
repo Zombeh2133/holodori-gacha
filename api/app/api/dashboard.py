@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import uuid
 from collections import defaultdict
@@ -314,6 +314,64 @@ async def account_dashboard(
         )
         .limit(1)
     )
+    # Gii Murin can upload one logical sync in several HTTP chunks.
+    # Group adjacent chunks so "Last synchronized" reports the whole sync,
+    # rather than only the final request.
+    if (
+        latest_import is not None
+        and latest_import.source == "gii_murin"
+    ):
+        recent_sync_chunks = (
+            await session.scalars(
+                select(GachaImport)
+                .where(
+                    GachaImport.game_account_id
+                    == account.id,
+                    GachaImport.source
+                    == latest_import.source,
+                    GachaImport.importer_version
+                    == latest_import.importer_version,
+                    GachaImport.imported_at
+                    <= latest_import.imported_at,
+                )
+                .order_by(
+                    GachaImport.imported_at.desc()
+                )
+                .limit(100)
+            )
+        ).all()
+
+        sync_chunks = []
+        previous_time = None
+
+        for chunk in recent_sync_chunks:
+            if previous_time is not None:
+                gap_seconds = (
+                    previous_time
+                    - chunk.imported_at
+                ).total_seconds()
+
+                # Individual chunks are sent back-to-back. A larger gap
+                # indicates a separate import/sync run.
+                if gap_seconds > 5:
+                    break
+
+            sync_chunks.append(chunk)
+            previous_time = chunk.imported_at
+
+        if len(sync_chunks) > 1:
+            latest_import.total_pulls = sum(
+                int(chunk.total_pulls or 0)
+                for chunk in sync_chunks
+            )
+            latest_import.new_pulls = sum(
+                int(chunk.new_pulls or 0)
+                for chunk in sync_chunks
+            )
+            latest_import.duplicate_pulls = sum(
+                int(chunk.duplicate_pulls or 0)
+                for chunk in sync_chunks
+            )
 
     recent_five = [
         pull
@@ -574,3 +632,4 @@ async def account_history(
             for pull in rows
         ],
     }
+
