@@ -143,7 +143,8 @@ function buildPublicPowerShell(
   const apiBase = psQuote(API);
   const importToken = psQuote(token);
 
-  return `$ErrorActionPreference = 'Stop'
+  return `& {
+$ErrorActionPreference = 'Stop'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 $ApiBase = '${apiBase}'
@@ -234,6 +235,7 @@ finally {
 }
 
 Write-Host ''
+}
 `;
 }
 
