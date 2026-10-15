@@ -290,7 +290,7 @@ button { color: inherit; }
   white-space: nowrap;
 }
 
-.history-title-row { margin-bottom: 8px; }
+.history-title-row { margin-bottom: 0; }
 .history-table thead th { vertical-align: bottom; }
 .roll-column { width: 72px; }
 .roll-number {
@@ -299,27 +299,29 @@ button { color: inherit; }
   white-space: nowrap;
 }
 .banner-header-cell {
-  min-width: 205px;
-  padding-top: 7px !important;
+  min-width: 220px;
+  padding-top: 0 !important;
 }
 .banner-header-cell > span {
   display: block;
-  margin-top: 8px;
+  margin-top: 5px;
 }
 .rarity-filters {
   display: flex;
   align-items: center;
-  gap: 6px;
-  min-height: 31px;
+  gap: 8px;
+  min-height: 38px;
+  margin-top: -8px;
 }
 .rarity-filter-button {
-  min-width: 42px;
-  height: 28px;
-  border-radius: 7px;
+  min-width: 54px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 9px;
   border: 1px solid var(--line);
   cursor: pointer;
   font-weight: 900;
-  font-size: .67rem;
+  font-size: .78rem;
   opacity: .34;
   transform: translateY(0);
   transition: opacity .15s ease, border-color .15s ease, transform .15s ease, box-shadow .15s ease;
