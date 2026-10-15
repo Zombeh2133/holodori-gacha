@@ -12,9 +12,9 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: "#090b12",
     icons: [
       {
-        src: "/icon.svg",
-        sizes: "any",
-        type: "image/svg+xml",
+        src: "/holodori-mascot.png",
+        sizes: "512x512",
+        type: "image/png",
       },
     ],
   };

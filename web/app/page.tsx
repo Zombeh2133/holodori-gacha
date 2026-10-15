@@ -717,7 +717,7 @@ export default function Home() {
     return (
       <main className="login-shell">
         <div className="login-card">
-          <div className="brand-mark">HG</div>
+          <div className="brand-mark"><img src="/holodori-mascot.png" alt="" /></div>
           <p className="eyebrow">HOLODORI GACHA</p>
           <h1>Your pulls, pity, and history in one place.</h1>
           <p className="muted">
@@ -738,7 +738,7 @@ export default function Home() {
     <main className="app-shell">
       <header className="topbar">
         <div className="brand-row">
-          <div className="brand-mark small">HG</div>
+          <div className="brand-mark small"><img src="/holodori-mascot.png" alt="" /></div>
           <div>
             <div className="brand-title">Holodori Gacha</div>
             <div className="brand-subtitle">Pull Tracker</div>
