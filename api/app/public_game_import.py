@@ -13,10 +13,27 @@ from Crypto.Cipher import AES
 
 
 REGION_CONFIG = {
-    "US": "https://us.game-hololive-dreams.com",
-    "ASIA": "https://as.game-hololive-dreams.com",
-    "JP": "https://jp.game-hololive-dreams.com",
+    "US": {
+        "base_url": "https://us.game-hololive-dreams.com",
+        "platform": "global",
+        "bundle_id": "game.qualiarts.hololive.dreams.com",
+        "lang_type": "eng",
+    },
+    "ASIA": {
+        "base_url": "https://as.game-hololive-dreams.com",
+        "platform": "global",
+        "bundle_id": "game.qualiarts.hololive.dreams.com",
+        "lang_type": "eng",
+    },
+    "JP": {
+        "base_url": "https://jp.game-hololive-dreams.com",
+        "platform": "jp",
+        "bundle_id": "game.qualiarts.hololive.dreams.jp",
+        "lang_type": "eng",
+    },
 }
+
+REGION_ORDER = ("US", "ASIA", "JP")
 
 APPVER_URL = (
     "https://raw.githubusercontent.com/"
@@ -45,6 +62,9 @@ USER_DATA_PROFILE_FIELD = 49977942
 _METADATA_CACHE: dict[str, dict] | None = None
 _METADATA_CACHE_AT = 0.0
 _METADATA_TTL_SECONDS = 6 * 60 * 60
+
+_APP_VERSION_CACHE: dict[str, tuple[float, str]] = {}
+_APP_VERSION_TTL_SECONDS = 10 * 60
 
 
 class PublicGameImportError(RuntimeError):
@@ -90,11 +110,23 @@ def x_as_for_region(region: str) -> str:
 
 
 def app_version_for_region(region: str) -> str:
-    platform = (
-        "jp"
-        if str(region).upper() == "JP"
-        else "global"
-    )
+    region = str(region).upper()
+    config = REGION_CONFIG.get(region)
+
+    if not config:
+        raise PublicGameImportError(
+            "Unsupported hololive Dreams region."
+        )
+
+    platform = str(config["platform"])
+    now = time.monotonic()
+    cached = _APP_VERSION_CACHE.get(platform)
+
+    if (
+        cached
+        and (now - cached[0]) < _APP_VERSION_TTL_SECONDS
+    ):
+        return cached[1]
 
     try:
         response = httpx.get(
@@ -123,6 +155,7 @@ def app_version_for_region(region: str) -> str:
             "The hololive Dreams app-version source returned no version."
         )
 
+    _APP_VERSION_CACHE[platform] = (now, value)
     return value
 
 
@@ -791,11 +824,10 @@ class GameClient:
         self.region = str(
             region
         ).upper()
-        self.base_url = (
-            REGION_CONFIG[
-                self.region
-            ]
-        )
+        region_config = REGION_CONFIG[self.region]
+        self.base_url = str(region_config["base_url"])
+        self.bundle_id = str(region_config["bundle_id"])
+        self.lang_type = str(region_config["lang_type"])
         self.credential = credential
         self.secret = secret
         self.x_as = x_as
@@ -827,12 +859,6 @@ class GameClient:
         if ticks is None:
             ticks = dotnet_ticks_now()
 
-        bundle_id = (
-            "game.qualiarts.hololive.dreams.jp"
-            if self.region == "JP"
-            else "game.qualiarts.hololive.dreams.com"
-        )
-
         headers = {
             "content-type": "application/grpc+proto-enc",
             "te": "trailers",
@@ -851,10 +877,10 @@ class GameClient:
                 "Android OS 14 / API-34 "
                 "(UQ1A.240205.07131809/ucsm.20260713.180933)"
             ),
-            "x-app-lang-type": "eng",
+            "x-app-lang-type": self.lang_type,
             "x-app-os-type": "Android",
             "x-app-store-type": "GooglePlay",
-            "x-app-bundle-id": bundle_id,
+            "x-app-bundle-id": self.bundle_id,
             "x-app-cpu": "x86-64 SSE3 SSE4.1 SSE4.2 AVX",
             "x-app-gpu": "Adreno (TM) 750",
             "x-app-operating-system-family": "Other",
@@ -1282,21 +1308,23 @@ def fetch_public_import_payload(
         or ""
     ).strip()
 
-    if not secret:
+    if not secret or not app_ad_id:
         raise PublicGameImportError(
-            "The website game importer is not configured yet."
+            "The website importer is temporarily unavailable. Please try again later."
         )
 
-    if not app_ad_id:
+    configured_regions = [
+        region
+        for region in REGION_ORDER
+        if x_as_for_region(region)
+    ]
+
+    if not configured_regions:
         raise PublicGameImportError(
-            "The website game importer is missing HD_APP_AD_ID."
+            "The website importer is temporarily unavailable. Please try again later."
         )
 
-    for region in (
-        "US",
-        "ASIA",
-        "JP",
-    ):
+    for region in configured_regions:
         x_as = x_as_for_region(
             region
         )

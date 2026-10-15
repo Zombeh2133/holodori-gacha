@@ -8,7 +8,7 @@ import json
 import secrets
 import time
 import uuid
-from collections import defaultdict
+from collections import defaultdict, deque
 from datetime import datetime, timezone
 
 from fastapi import (
@@ -17,9 +17,10 @@ from fastapi import (
     Header,
     HTTPException,
     Request,
+    Response,
     status,
 )
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -48,7 +49,15 @@ from ..schemas import (
 class PublicGameCredentialRequest(
     BaseModel
 ):
-    credential: str
+    model_config = ConfigDict(
+        extra="forbid",
+        str_strip_whitespace=True,
+    )
+
+    credential: str = Field(
+        min_length=32,
+        max_length=2048,
+    )
 
 
 router = APIRouter(
@@ -58,6 +67,118 @@ router = APIRouter(
 
 LOCAL_IMPORT_TOKEN_TTL_SECONDS = 15 * 60
 LOCAL_IMPORT_TOKEN_VERSION = 1
+
+PUBLIC_IMPORT_RATE_WINDOW_SECONDS = 10 * 60
+PUBLIC_IMPORT_RATE_MAX_REQUESTS = 10
+PUBLIC_IMPORT_MAX_CONCURRENT = 3
+PUBLIC_IMPORT_QUEUE_TIMEOUT_SECONDS = 2.0
+
+_public_import_attempts: dict[str, deque[float]] = {}
+_public_import_active_users: set[str] = set()
+_public_import_guard = asyncio.Lock()
+_public_import_slots = asyncio.Semaphore(
+    PUBLIC_IMPORT_MAX_CONCURRENT
+)
+
+
+async def _begin_public_import(
+    user_id: uuid.UUID,
+) -> str:
+    key = str(user_id)
+    now = time.monotonic()
+
+    async with _public_import_guard:
+        if key in _public_import_active_users:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "An import is already running for your account. "
+                    "Wait for it to finish before starting another one."
+                ),
+            )
+
+        attempts = _public_import_attempts.setdefault(
+            key,
+            deque(),
+        )
+        cutoff = (
+            now
+            - PUBLIC_IMPORT_RATE_WINDOW_SECONDS
+        )
+
+        while (
+            attempts
+            and attempts[0] <= cutoff
+        ):
+            attempts.popleft()
+
+        if (
+            len(attempts)
+            >= PUBLIC_IMPORT_RATE_MAX_REQUESTS
+        ):
+            retry_after = max(
+                1,
+                int(
+                    PUBLIC_IMPORT_RATE_WINDOW_SECONDS
+                    - (now - attempts[0])
+                ) + 1,
+            )
+            raise HTTPException(
+                status_code=(
+                    status.HTTP_429_TOO_MANY_REQUESTS
+                ),
+                detail=(
+                    "Too many import attempts. "
+                    f"Wait about {retry_after} seconds and try again."
+                ),
+                headers={
+                    "Retry-After": str(retry_after),
+                },
+            )
+
+        attempts.append(now)
+        _public_import_active_users.add(key)
+
+    try:
+        await asyncio.wait_for(
+            _public_import_slots.acquire(),
+            timeout=(
+                PUBLIC_IMPORT_QUEUE_TIMEOUT_SECONDS
+            ),
+        )
+    except TimeoutError:
+        async with _public_import_guard:
+            _public_import_active_users.discard(key)
+            attempts = _public_import_attempts.get(key)
+            if (
+                attempts
+                and attempts[-1] == now
+            ):
+                attempts.pop()
+
+        raise HTTPException(
+            status_code=(
+                status.HTTP_503_SERVICE_UNAVAILABLE
+            ),
+            detail=(
+                "The importer is busy right now. "
+                "Wait a few seconds and try again."
+            ),
+            headers={
+                "Retry-After": "5",
+            },
+        )
+
+    return key
+
+
+async def _finish_public_import(
+    key: str,
+) -> None:
+    _public_import_slots.release()
+
+    async with _public_import_guard:
+        _public_import_active_users.discard(key)
 
 
 def _session_identity(
@@ -641,7 +762,9 @@ async def _perform_site_import(
 )
 async def local_import_token(
     request: Request,
+    response: Response,
 ) -> dict:
+    response.headers["Cache-Control"] = "no-store"
     (
         user_id,
         discord_user_id,
@@ -727,6 +850,7 @@ async def import_local_game_pulls(
 )
 async def import_public_game(
     payload: PublicGameCredentialRequest,
+    response: Response,
     authorization: str = Header(
         default="",
         alias="Authorization",
@@ -735,6 +859,7 @@ async def import_public_game(
         get_session
     ),
 ) -> SiteImportResponse:
+    response.headers["Cache-Control"] = "no-store"
     token = _bearer_token(
         authorization
     )
@@ -754,37 +879,63 @@ async def import_public_game(
         token
     )
 
+    guard_key = await _begin_public_import(
+        user_id
+    )
+
+    credential = payload.credential
+    payload.credential = ""
+
     try:
-        normalized_payload = (
-            await asyncio.to_thread(
-                fetch_public_import_payload,
-                payload.credential,
+        try:
+            normalized_payload = (
+                await asyncio.to_thread(
+                    fetch_public_import_payload,
+                    credential,
+                )
+            )
+        except PublicGameImportError as exc:
+            raise HTTPException(
+                status_code=(
+                    status.HTTP_502_BAD_GATEWAY
+                ),
+                detail=str(exc),
+            ) from None
+        except Exception:
+            raise HTTPException(
+                status_code=(
+                    status.HTTP_502_BAD_GATEWAY
+                ),
+                detail=(
+                    "The game service could not be reached. "
+                    "Please try again shortly."
+                ),
+            ) from None
+        finally:
+            credential = ""
+
+        site_payload = (
+            SiteImportRequest.model_validate(
+                normalized_payload
             )
         )
-    except PublicGameImportError as exc:
-        raise HTTPException(
-            status_code=502,
-            detail=str(exc),
-        ) from exc
 
-    site_payload = (
-        SiteImportRequest.model_validate(
-            normalized_payload
+        return await _perform_site_import(
+            site_payload,
+            user_id=user_id,
+            discord_user_id=(
+                discord_user_id
+            ),
+            source="public_powershell",
+            default_importer_version=(
+                "public-powershell-v1"
+            ),
+            session=session,
         )
-    )
-
-    return await _perform_site_import(
-        site_payload,
-        user_id=user_id,
-        discord_user_id=(
-            discord_user_id
-        ),
-        source="public_powershell",
-        default_importer_version=(
-            "public-powershell-v1"
-        ),
-        session=session,
-    )
+    finally:
+        await _finish_public_import(
+            guard_key
+        )
 
 
 @router.post(

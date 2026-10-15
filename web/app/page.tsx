@@ -219,11 +219,27 @@ try {
     Write-Host 'Refresh Holodori Gacha to see your updated history.' -ForegroundColor Cyan
 }
 catch {
+    $errorMessage = $_.Exception.Message
+
+    try {
+        if ($_.ErrorDetails.Message) {
+            $errorPayload = (
+                $_.ErrorDetails.Message
+                | ConvertFrom-Json
+            )
+
+            if ($errorPayload.detail) {
+                $errorMessage = [string]$errorPayload.detail
+            }
+        }
+    } catch {
+    }
+
     Write-Host ''
     Write-Host 'Import failed:' -ForegroundColor Red
-    Write-Host $_.Exception.Message -ForegroundColor Red
+    Write-Host $errorMessage -ForegroundColor Red
 
-    if ($_.Exception.Message -match '401|token|expired') {
+    if ($errorMessage -match '401|token|expired') {
         Write-Host ''
         Write-Host 'Generate a fresh PowerShell script from the website and try again.' -ForegroundColor Yellow
     }
