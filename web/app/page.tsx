@@ -50,6 +50,13 @@ type Banner = {
   last_five_star_pity: number | null;
 };
 
+type PulledCardSummary = {
+  item_id: string;
+  item_name: string;
+  rarity: number;
+  count: number;
+};
+
 type Dashboard = {
   account: {
     id: string;
@@ -73,6 +80,7 @@ type Dashboard = {
     banner_count: number;
   };
   banners: Banner[];
+  pulled_cards: PulledCardSummary[];
   recent_five_star_pulls: Pull[];
   recent_pulls: Pull[];
   latest_import: null | {
@@ -1009,6 +1017,10 @@ function DashboardView({
   chooseBanner: (id: string | null) => void;
   selectedBanner: string | null;
 }) {
+  const [bannerRarityFilters, setBannerRarityFilters] = useState<Set<number>>(
+    () => new Set([4, 5]),
+  );
+
   if (loading && !dashboard) {
     return (
       <div className="panel loading-panel">
@@ -1062,6 +1074,19 @@ function DashboardView({
         (total, banner) => total + Math.floor(banner.total_pulls / SPARK_THRESHOLD),
         0,
       );
+
+  const visiblePulledCards = (dashboard.pulled_cards || []).filter((card) =>
+    bannerRarityFilters.has(card.rarity),
+  );
+
+  function toggleBannerRarity(rarity: number) {
+    setBannerRarityFilters((current) => {
+      const next = new Set(current);
+      if (next.has(rarity)) next.delete(rarity);
+      else next.add(rarity);
+      return next;
+    });
+  }
 
   return (
     <>
@@ -1135,11 +1160,67 @@ function DashboardView({
           <div className="panel-title-row">
             <div>
               <p className="eyebrow">BANNER STATUS</p>
-              <h2>Pulls to Spark</h2>
+              <h2>{selectedBanner ? "Holomems Pulled" : "Pulls to Spark"}</h2>
             </div>
+
+            {selectedBanner && (
+              <div className="rarity-filters" aria-label="Filter pulled Holomems by rarity">
+                {[3, 4, 5].map((rarity) => (
+                  <button
+                    type="button"
+                    key={rarity}
+                    className={`rarity-filter-button rarity-${rarity} ${bannerRarityFilters.has(rarity) ? "active" : ""}`}
+                    aria-pressed={bannerRarityFilters.has(rarity)}
+                    onClick={() => toggleBannerRarity(rarity)}
+                    title={`${rarity}★ ${bannerRarityFilters.has(rarity) ? "shown" : "hidden"}`}
+                  >
+                    {rarity}★
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
-          {dashboard.banners.length ? (
+          {selectedBanner ? (
+            visiblePulledCards.length ? (
+              <div className="banner-list scrollable-banner-list">
+                {visiblePulledCards.map((card) => {
+                  const holomemName = characterNameFromCardId(card.item_id);
+                  const displayName = holomemName
+                    ? `${holomemName} - ${card.item_name}`
+                    : card.item_name;
+
+                  return (
+                    <div
+                      className="banner-row"
+                      key={`${card.item_id}-${card.rarity}`}
+                    >
+                      <div className={`banner-icon rarity-${card.rarity} artwork-avatar`}>
+                        <ArtworkImage
+                          kind="card"
+                          id={card.item_id}
+                          alt=""
+                          className="artwork-fill"
+                        />
+                        <span className="artwork-fallback">{initials(card.item_name)}</span>
+                      </div>
+
+                      <div className="banner-copy">
+                        <strong>{displayName} x{card.count}</strong>
+                        <span>{card.rarity}★ card</span>
+                      </div>
+
+                      <span className={`rarity-badge rarity-${card.rarity}`}>
+                        {card.rarity}★
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <EmptyState text="No pulled Holomems match the selected rarity filters." />
+            )
+          ) : dashboard.banners.length ? (
             <div className="banner-list scrollable-banner-list">
               {dashboard.banners.map((banner) => (
                 <button

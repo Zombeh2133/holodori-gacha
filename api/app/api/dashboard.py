@@ -370,6 +370,40 @@ async def account_dashboard(
             int(pull.rarity)
         ] += 1
 
+    pulled_cards = []
+
+    if selected_banner is not None:
+        pulled_card_counts: dict[
+            tuple[str, int],
+            dict,
+        ] = {}
+
+        for pull in scoped_pulls:
+            item_id = str(pull.item_id)
+            rarity = int(pull.rarity)
+            key = (item_id, rarity)
+            row = pulled_card_counts.get(key)
+
+            if row is None:
+                row = {
+                    "item_id": item_id,
+                    "item_name": pull.item_name,
+                    "rarity": rarity,
+                    "count": 0,
+                }
+                pulled_card_counts[key] = row
+
+            row["count"] += 1
+
+        pulled_cards = sorted(
+            pulled_card_counts.values(),
+            key=lambda row: (
+                -int(row["rarity"]),
+                -int(row["count"]),
+                str(row["item_name"]).casefold(),
+            ),
+        )
+
     average_five_star_pity, scoped_summary = (
         _pity_summary(
             scoped_pulls,
@@ -515,6 +549,7 @@ async def account_dashboard(
         # Always return every banner so the sidebar remains usable
         # while one banner is selected.
         "banners": all_banner_summary,
+        "pulled_cards": pulled_cards,
         "recent_five_star_pulls": [
             _pull_row(pull, banners)
             for pull in recent_five
