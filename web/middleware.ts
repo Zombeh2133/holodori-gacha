@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const CANONICAL_HOST = "holodorigacha.com";
+const CANONICAL_ORIGIN = "https://holodorigacha.com";
 const WWW_HOST = "www.holodorigacha.com";
 
 export function middleware(request: NextRequest) {
@@ -19,11 +19,12 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const url = request.nextUrl.clone();
-  url.protocol = "https:";
-  url.host = CANONICAL_HOST;
+  const destination = new URL(
+    `${request.nextUrl.pathname}${request.nextUrl.search}`,
+    CANONICAL_ORIGIN,
+  );
 
-  return NextResponse.redirect(url, 308);
+  return NextResponse.redirect(destination, 308);
 }
 
 export const config = {
