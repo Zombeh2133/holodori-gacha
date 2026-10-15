@@ -47,6 +47,7 @@ app.add_middleware(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        settings.frontend_url.rstrip("/"),
         "http://localhost:3000",
         "http://127.0.0.1:3000",
     ],
@@ -73,3 +74,4 @@ app.include_router(me_router)
 app.include_router(dashboard_router)
 app.include_router(import_router)
 app.include_router(integrations_router)
+
