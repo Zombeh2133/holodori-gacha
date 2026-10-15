@@ -441,7 +441,7 @@ async def account_dashboard(
         pull
         for pull in scoped_pulls
         if pull.rarity >= 5
-    ][:30]
+    ]
 
     recent_history = scoped_pulls[:30]
 

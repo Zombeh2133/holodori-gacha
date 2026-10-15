@@ -133,7 +133,7 @@ type LocalImportToken = {
   expires_in_seconds: number;
 };
 
-type ViewName = "dashboard" | "history" | "import";
+type ViewName = "dashboard" | "history" | "import" | "faq";
 
 
 function buildPublicPowerShell(
@@ -738,6 +738,12 @@ export default function Home() {
           >
             Import
           </button>
+          <button
+            className={activeView === "faq" ? "nav-active" : ""}
+            onClick={() => setActiveView("faq")}
+          >
+            FAQ
+          </button>
         </nav>
 
         <div className="user-area">
@@ -899,7 +905,7 @@ export default function Home() {
               setPage={setHistoryPage}
               selectedBannerData={selectedBannerData}
             />
-          ) : (
+          ) : activeView === "import" ? (
             <ImportView
               preview={importPreview}
               filename={importFilename}
@@ -910,6 +916,8 @@ export default function Home() {
               onImport={submitImport}
               onViewDashboard={() => setActiveView("dashboard")}
             />
+          ) : (
+            <FaqView />
           )}
         </section>
       </div>
@@ -1491,7 +1499,7 @@ function ImportView({
             <h2>Import directly from hololive Dreams</h2>
             <p className="muted">
               Generate a short-lived PowerShell script, copy it, paste it into Windows
-              PowerShell, and press Enter. No downloads, GitHub clone, Python, irm, or iex.
+              PowerShell, and press Enter.
             </p>
           </div>
           <div className="import-command-actions">
@@ -1669,6 +1677,130 @@ function ImportView({
           </button>
         </div>
       )}
+    </section>
+  );
+}
+
+
+function FaqView() {
+  return (
+    <section className="faq-layout">
+      <div className="panel faq-intro">
+        <p className="eyebrow">FAQ</p>
+        <h2>Holodori Gacha FAQ</h2>
+        <p className="muted">
+          Common questions about the tracker, imports, account data, banners, and pull history.
+        </p>
+      </div>
+
+      <div className="faq-list">
+        <details className="panel faq-item" open>
+          <summary>What is Holodori Gacha for?</summary>
+          <p>
+            Holodori Gacha is a pull-history tracker for hololive Dreams. It keeps your
+            imported pulls in one place so you can review your history, see high-rarity
+            results, compare banners, and track progress toward a 200-pull spark.
+          </p>
+        </details>
+
+        <details className="panel faq-item">
+          <summary>Is this an official hololive Dreams website?</summary>
+          <p>
+            No. Holodori Gacha is an unofficial community tool and is not operated by
+            COVER or QualiArts.
+          </p>
+        </details>
+
+        <details className="panel faq-item">
+          <summary>What does the site track?</summary>
+          <p>
+            The site stores imported pull results such as the banner, card, rarity,
+            draw time, game account ID, region, and account nickname. It uses that data
+            to build your dashboard, pull history, recent 5★ list, banner totals, and
+            spark progress.
+          </p>
+        </details>
+
+        <details className="panel faq-item">
+          <summary>How does the PowerShell import work?</summary>
+          <p>
+            The generated command looks for the newest hololive Dreams DC* login file
+            on your PC and sends the account credential over HTTPS to the Holodori Gacha
+            API for that import request. The API signs in to the game service, reads the
+            account and Gacha Log data, normalizes the pulls, and saves them to the
+            Holodori Gacha account you are currently signed in to.
+          </p>
+        </details>
+
+        <details className="panel faq-item">
+          <summary>Is my hololive Dreams account safe?</summary>
+          <p>
+            The importer is designed only to retrieve the information needed for pull
+            tracking. It does not spend currency, perform gacha pulls, change your
+            password or account settings, modify inventory, or edit local game files.
+            The game credential is used for the import request and is not written to the
+            Holodori Gacha database. Treat your DC* credential and any generated import
+            command as private.
+          </p>
+        </details>
+
+        <details className="panel faq-item">
+          <summary>What account information is stored?</summary>
+          <p>
+            Holodori Gacha stores the game account identifier, region, account nickname,
+            normalized pull history, and the Discord identity used to attach that data
+            to your site account. The game login credential and Discord OAuth tokens are
+            not stored in the Holodori Gacha database.
+          </p>
+        </details>
+
+        <details className="panel faq-item">
+          <summary>Why does the site use Discord login?</summary>
+          <p>
+            Discord gives the site a simple way to identify you and attach imported
+            history to the correct account. The login requests Discord&apos;s identify
+            scope, and it also allows history previously synchronized through Gii Murin
+            to be claimed by the matching Discord user.
+          </p>
+        </details>
+
+        <details className="panel faq-item">
+          <summary>Why are some pulls shown as duplicates?</summary>
+          <p>
+            Re-importing is safe. Holodori Gacha gives each pull a stable identity and
+            ignores pulls that are already saved, so running the importer again should
+            add new results without creating duplicate history.
+          </p>
+        </details>
+
+        <details className="panel faq-item">
+          <summary>Why might older pulls be missing?</summary>
+          <p>
+            The direct importer can only import the history that hololive Dreams returns
+            from its Gacha Log at that time. The game log may not provide unlimited
+            lifetime history. Once a pull has been saved by Holodori Gacha, later imports
+            keep it and duplicate detection prevents it from being added twice.
+          </p>
+        </details>
+
+        <details className="panel faq-item">
+          <summary>How does spark tracking work?</summary>
+          <p>
+            Spark progress is tracked per banner using a 200-pull threshold. Different
+            banner variants are kept separate, including Member Select and Standard
+            Pickup versions, so pulls from one variant do not incorrectly count toward
+            another.
+          </p>
+        </details>
+
+        <details className="panel faq-item">
+          <summary>Can I track more than one game account?</summary>
+          <p>
+            Yes. Imported game accounts are listed separately in the sidebar, and each
+            account keeps its own banners, totals, pull history, and spark progress.
+          </p>
+        </details>
+      </div>
     </section>
   );
 }
