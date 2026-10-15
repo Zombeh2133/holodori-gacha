@@ -311,7 +311,7 @@ button { color: inherit; }
   align-items: center;
   gap: 8px;
   min-height: 38px;
-  margin-top: -8px;
+  margin-top: 0;
 }
 .rarity-filter-button {
   min-width: 54px;
