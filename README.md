@@ -1,4 +1,3 @@
-Holodori Gacha
 Holodori Gacha is a gacha-history tracker for hololive Dreams. It imports a player's pull history, stores it in PostgreSQL, and presents account, banner, rarity, pity/spark, and pull-history data through a web dashboard.
 The project is split into a FastAPI backend, a Next.js frontend, a PostgreSQL database, a local game importer, and an artwork cache backed by `holodori-asset-tools`.
 Features
