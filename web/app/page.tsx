@@ -980,7 +980,54 @@ export default function Home() {
 
   {error && <div className="error-box">{error}</div>}
 
-  {/* existing page content continues here */}
+          {activeView === "dashboard" ? (
+            <DashboardView
+              dashboard={dashboard}
+              loading={dashboardLoading}
+              selectedAccount={selectedAccount}
+              rarityFilters={rarityFilters}
+              dashboardHistory={dashboardHistory}
+              dashboardHistoryLoading={dashboardHistoryLoading}
+              dashboardHistoryPage={dashboardHistoryPage}
+              setDashboardHistoryPage={setDashboardHistoryPage}
+              toggleRarity={toggleRarity}
+              chooseBanner={chooseBanner}
+              selectedBanner={selectedBanner}
+            />
+          ) : activeView === "history" ? (
+            <HistoryView
+              history={history}
+              loading={historyLoading}
+              selectedAccount={selectedAccount}
+              rarityFilters={rarityFilters}
+              toggleRarity={toggleRarity}
+              page={historyPage}
+              setPage={setHistoryPage}
+              selectedBannerData={selectedBannerData}
+            />
+          ) : activeView === "import" ? (
+            <ImportView
+              preview={importPreview}
+              filename={importFilename}
+              error={importError}
+              importing={importing}
+              result={importResult}
+              onFile={handleImportFile}
+              onImport={submitImport}
+              onViewDashboard={() => setActiveView("dashboard")}
+            />
+          ) : activeView === "admin" && isAdmin ? (
+            <AdminView overview={adminOverview} loading={adminLoading} error={adminError} page={adminPage} setPage={setAdminPage} />
+          ) : activeView === "faq" ? (
+            <FaqView />
+          ) : (
+            <PrivacyView />
+          )}
+        </section>
+      </div>
+    </main>
+  );
+}
 
 function DashboardView({
   dashboard,
