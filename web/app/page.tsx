@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { characterNameFromCardId } from "./characterMap";
 
 const API = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
+const ADMIN_DISCORD_USER_ID = "1389811257577705573";
 
 type Account = {
   id: string;
@@ -141,7 +142,9 @@ type LocalImportToken = {
   expires_in_seconds: number;
 };
 
-type ViewName = "dashboard" | "history" | "import" | "faq" | "privacy";
+type AdminOverview = { summary:{total_pulls:number;tracked_users:number;game_accounts:number;five_star_pulls:number;four_star_pulls:number;three_star_pulls:number}; regions:Array<{region:string;accounts:number;pulls:number}>; pulls:{page:number;page_size:number;total:number;total_pages:number;rows:Array<{id:string;item_id:string;item_name:string;rarity:number;pulled_at:string|null;region:string;game_account_id:string;nickname:string|null;banner_name:string}>} };
+
+type ViewName = "dashboard" | "history" | "import" | "faq" | "privacy" | "admin";
 
 
 function buildPublicPowerShell(
@@ -364,6 +367,11 @@ export default function Home() {
   const [importError, setImportError] = useState("");
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<SiteImportResult | null>(null);
+  const [adminOverview, setAdminOverview] = useState<AdminOverview | null>(null);
+  const [adminPage, setAdminPage] = useState(1);
+  const [adminLoading, setAdminLoading] = useState(false);
+  const [adminError, setAdminError] = useState("");
+  const isAdmin = me?.discord_user_id === ADMIN_DISCORD_USER_ID;
 
   useEffect(() => {
     let cancelled = false;
@@ -565,6 +573,20 @@ export default function Home() {
       cancelled = true;
     };
   }, [activeView, selectedAccount, selectedBanner, historyPage, rarityFilters]);
+
+  useEffect(() => {
+    if (activeView !== "admin") return;
+    if (!isAdmin) { setActiveView("dashboard"); return; }
+    let cancelled=false;
+    (async()=>{ try {
+      setAdminLoading(true); setAdminError("");
+      const response=await fetch(`${API}/api/admin/overview?page=${adminPage}&page_size=50`,{credentials:"include"});
+      const payload=await response.json().catch(()=>({}));
+      if(!response.ok) throw new Error(typeof payload?.detail==="string"?payload.detail:`Admin request failed (${response.status})`);
+      if(!cancelled){ setAdminOverview(payload as AdminOverview); if(payload.pulls.page!==adminPage) setAdminPage(payload.pulls.page); }
+    } catch(err){ if(!cancelled) setAdminError(err instanceof Error?err.message:"Failed to load admin statistics."); } finally { if(!cancelled) setAdminLoading(false); } })();
+    return()=>{cancelled=true};
+  }, [activeView,isAdmin,adminPage]);
 
   const selected = useMemo(
     () => me?.game_accounts.find((account) => account.id === selectedAccount) || null,
@@ -776,6 +798,7 @@ export default function Home() {
           >
             Privacy
           </button>
+          {isAdmin && <button className={`${activeView === "admin" ? "nav-active" : ""} admin-nav-button`} onClick={()=>{setAdminPage(1);setActiveView("admin")}}>Admin</button>}
         </nav>
 
         <div className="user-area">
@@ -823,9 +846,10 @@ export default function Home() {
         >
           Privacy
         </button>
+        {isAdmin && <button className={`${activeView === "admin" ? "nav-active" : ""} admin-nav-button`} onClick={()=>{setAdminPage(1);setActiveView("admin")}}>Admin</button>}
       </nav>
 
-      <div className="workspace">
+      <div className={`workspace ${activeView === "admin" ? "admin-mode" : ""}`}>
         <aside className="sidebar">
           <div className="sidebar-heading">
             <span>Game Accounts</span>
@@ -920,19 +944,19 @@ export default function Home() {
           <div className="hero-row">
             <div>
               <p className="eyebrow">
-                {selectedBannerData ? bannerTypeLabel(selectedBannerData.banner_type).toUpperCase() : `${selected?.region || "—"} ACCOUNT`}
+                {activeView === "admin" ? "ADMIN" : selectedBannerData ? bannerTypeLabel(selectedBannerData.banner_type).toUpperCase() : `${selected?.region || "—"} ACCOUNT`}
               </p>
               <h1>
-                {selectedBannerData?.name || selected?.nickname || "Gacha Dashboard"}
+                {activeView === "admin" ? "Holodori Gacha Overview" : selectedBannerData?.name || selected?.nickname || "Gacha Dashboard"}
               </h1>
               <p className="muted">
-                {selectedBannerData
+                {activeView === "admin" ? "Global tracking statistics across all imported Holodori Gacha accounts." : selectedBannerData
                   ? `${selected?.nickname || selected?.game_account_id || "Account"} · ${selectedBannerData.total_pulls} pulls on this banner`
                   : "Track lifetime pulls, pity, banners, and recent high-rarity results."}
               </p>
             </div>
 
-            {dashboard?.latest_import && (
+            {activeView !== "admin" && dashboard?.latest_import && (
               <div className="sync-card">
                 <span>Last synchronized</span>
                 <strong>{prettyDate(dashboard.latest_import.imported_at)}</strong>
@@ -981,6 +1005,8 @@ export default function Home() {
               onImport={submitImport}
               onViewDashboard={() => setActiveView("dashboard")}
             />
+          ) : activeView === "admin" && isAdmin ? (
+            <AdminView overview={adminOverview} loading={adminLoading} error={adminError} page={adminPage} setPage={setAdminPage} />
           ) : activeView === "faq" ? (
             <FaqView />
           ) : (
@@ -1505,8 +1531,7 @@ function PullTable({
   );
 }
 
-
-function inferPreviewRarity(pull: SiteImportFile["pulls"][number]) {
+\nfunction AdminView({overview,loading,error,page,setPage}:{overview:AdminOverview|null;loading:boolean;error:string;page:number;setPage:(p:number)=>void}) {\n  if(loading&&!overview) return <div className="panel loading-panel"><div className="loader"/>Loading global tracking statistics…</div>;\n  if(!overview) return <div className="panel">{error?<div className="error-box">{error}</div>:<EmptyState text="No admin statistics are available yet."/>}</div>;\n  return <section className="admin-layout">\n    {error&&<div className="error-box">{error}</div>}\n    <section className="admin-stats-grid">\n      <StatCard label="Tracked Pulls" value={overview.summary.total_pulls} hint="All stored pulls" accent="blue"/>\n      <StatCard label="Tracked Users" value={overview.summary.tracked_users} hint="Unique Discord owners"/>\n      <StatCard label="Game Accounts" value={overview.summary.game_accounts} hint="Across all regions"/>\n      <StatCard label="5★ Pulls" value={overview.summary.five_star_pulls} hint="Global total" accent="gold"/>\n      <StatCard label="4★ Pulls" value={overview.summary.four_star_pulls} hint="Global total" accent="purple"/>\n      <StatCard label="3★ Pulls" value={overview.summary.three_star_pulls} hint="Global total" accent="blue"/>\n    </section>\n    <section className="panel"><div className="panel-title-row"><div><p className="eyebrow">REGION ACTIVITY</p><h2>Tracked accounts by region</h2></div></div>\n      <div className="admin-region-wrap"><table className="admin-region-table"><thead><tr><th>Region</th><th>Accounts</th><th>Pulls</th><th>Share</th></tr></thead><tbody>{overview.regions.map(r=>{const share=overview.summary.total_pulls?r.pulls/overview.summary.total_pulls*100:0;return <tr key={r.region}><td><span className="region-pill">{r.region}</span></td><td>{r.accounts}</td><td>{r.pulls.toLocaleString()}</td><td>{share.toFixed(1)}%</td></tr>})}</tbody></table></div>\n    </section>\n    <section className="panel admin-pulls-panel"><div className="panel-title-row"><div><p className="eyebrow">GLOBAL PULL FEED</p><h2>All tracked pulls</h2><p className="history-subtitle">Newest stored pulls across every tracked game account · 50 per page.</p></div><div className="history-summary"><strong>{overview.pulls.total.toLocaleString()}</strong><span>tracked pulls</span></div></div>\n      <div className="history-table-wrap"><table className="history-table admin-history-table"><thead><tr><th>Card</th><th>Rarity</th><th>Region</th><th>Account</th><th>Banner</th><th>Time</th></tr></thead><tbody>{overview.pulls.rows.map(x=><tr key={x.id}><td><div className="result-cell"><div className={`mini-avatar rarity-${x.rarity} artwork-avatar`}><ArtworkImage kind="card" id={x.item_id} alt="" className="artwork-fill"/><span className="artwork-fallback">{initials(x.item_name)}</span></div><strong>{characterNameFromCardId(x.item_id)?`${characterNameFromCardId(x.item_id)} - ${x.item_name}`:x.item_name}</strong></div></td><td><span className={`rarity-badge rarity-${x.rarity}`}>{x.rarity}★</span></td><td>{x.region}</td><td><div className="admin-account-cell"><strong>{x.nickname||x.game_account_id}</strong>{x.nickname&&<span>{x.game_account_id}</span>}</div></td><td><span className="banner-name">{x.banner_name}</span></td><td>{prettyDate(x.pulled_at)}</td></tr>)}</tbody></table>{overview.pulls.rows.length===0&&<div className="filtered-empty">No pulls have been tracked yet.</div>}</div>\n      {overview.pulls.total_pages>1&&<div className="pagination-row"><button type="button" className="page-button" disabled={overview.pulls.page<=1||loading} onClick={()=>setPage(Math.max(1,page-1))}>← Previous</button><span>Page <strong>{overview.pulls.page}</strong> of <strong>{overview.pulls.total_pages}</strong></span><button type="button" className="page-button" disabled={overview.pulls.page>=overview.pulls.total_pages||loading} onClick={()=>setPage(Math.min(overview.pulls.total_pages,page+1))}>Next →</button></div>}\n    </section>\n  </section>;\n}\n\nfunction inferPreviewRarity(pull: SiteImportFile["pulls"][number]) {
   if (pull.rarity) return pull.rarity;
 
   const match = String(pull.card_id || "").match(/^card-[^-]+-(\d+)-/i);

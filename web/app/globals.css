@@ -1472,3 +1472,18 @@ button { color: inherit; }
   }
 }
 
+/* Admin overview */
+.workspace.admin-mode{grid-template-columns:minmax(0,1fr)}
+.workspace.admin-mode .sidebar{display:none}
+.admin-nav-button{color:#ffd36b}
+.admin-layout{display:grid;gap:18px}
+.admin-stats-grid{display:grid;grid-template-columns:repeat(6,minmax(130px,1fr));gap:12px}
+.admin-stats-grid .stat-card{min-height:120px}
+.admin-region-wrap{overflow-x:auto}
+.admin-region-table{width:100%;border-collapse:collapse;min-width:620px}
+.admin-region-table th{padding:10px 12px;border-bottom:1px solid var(--line);color:#687289;font-size:.67rem;text-transform:uppercase;text-align:left}
+.admin-region-table td{padding:13px 12px;border-bottom:1px solid rgba(255,255,255,.045);color:#c2cada;font-size:.8rem}
+.admin-pulls-panel{min-width:0}.admin-history-table{min-width:1040px}
+.admin-account-cell{display:grid;gap:3px;min-width:130px}.admin-account-cell span{color:var(--muted);font-size:.65rem}
+@media(max-width:1280px){.admin-stats-grid{grid-template-columns:repeat(3,minmax(130px,1fr))}}
+@media(max-width:700px){.admin-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
