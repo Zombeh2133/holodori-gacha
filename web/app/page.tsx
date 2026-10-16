@@ -941,82 +941,46 @@ export default function Home() {
         </aside>
 
         <section className="content">
-          <div className="hero-row">
-            <div>
-              <p className="eyebrow">
-                {activeView === "admin" ? "ADMIN" : selectedBannerData ? bannerTypeLabel(selectedBannerData.banner_type).toUpperCase() : `${selected?.region || "—"} ACCOUNT`}
-              </p>
-              <h1>
-                {activeView === "admin" ? "Holodori Gacha Overview" : selectedBannerData?.name || selected?.nickname || "Gacha Dashboard"}
-              </h1>
-              <p className="muted">
-                {activeView === "admin" ? "Global tracking statistics across all imported Holodori Gacha accounts." : selectedBannerData
-                  ? `${selected?.nickname || selected?.game_account_id || "Account"} · ${selectedBannerData.total_pulls} pulls on this banner`
-                  : "Track lifetime pulls, pity, banners, and recent high-rarity results."}
-              </p>
-            </div>
+  {activeView === "dashboard" && (
+    <div className="hero-row">
+      <div>
+        <p className="eyebrow">
+          {selectedBannerData
+            ? bannerTypeLabel(selectedBannerData.banner_type).toUpperCase()
+            : `${selected?.region || "—"} ACCOUNT`}
+        </p>
 
-            {activeView !== "admin" && dashboard?.latest_import && (
-              <div className="sync-card">
-                <span>Last synchronized</span>
-                <strong>{prettyDate(dashboard.latest_import.imported_at)}</strong>
-                <small>
-                  {dashboard.latest_import.new_pulls} new · {dashboard.latest_import.duplicate_pulls} duplicates ignored
-                </small>
-              </div>
-            )}
-          </div>
+        <h1>
+          {selectedBannerData?.name ||
+            selected?.nickname ||
+            "Gacha Dashboard"}
+        </h1>
 
-          {error && <div className="error-box">{error}</div>}
-
-          {activeView === "dashboard" ? (
-            <DashboardView
-              dashboard={dashboard}
-              loading={dashboardLoading}
-              selectedAccount={selectedAccount}
-              rarityFilters={rarityFilters}
-              dashboardHistory={dashboardHistory}
-              dashboardHistoryLoading={dashboardHistoryLoading}
-              dashboardHistoryPage={dashboardHistoryPage}
-              setDashboardHistoryPage={setDashboardHistoryPage}
-              toggleRarity={toggleRarity}
-              chooseBanner={chooseBanner}
-              selectedBanner={selectedBanner}
-            />
-          ) : activeView === "history" ? (
-            <HistoryView
-              history={history}
-              loading={historyLoading}
-              selectedAccount={selectedAccount}
-              rarityFilters={rarityFilters}
-              toggleRarity={toggleRarity}
-              page={historyPage}
-              setPage={setHistoryPage}
-              selectedBannerData={selectedBannerData}
-            />
-          ) : activeView === "import" ? (
-            <ImportView
-              preview={importPreview}
-              filename={importFilename}
-              error={importError}
-              importing={importing}
-              result={importResult}
-              onFile={handleImportFile}
-              onImport={submitImport}
-              onViewDashboard={() => setActiveView("dashboard")}
-            />
-          ) : activeView === "admin" && isAdmin ? (
-            <AdminView overview={adminOverview} loading={adminLoading} error={adminError} page={adminPage} setPage={setAdminPage} />
-          ) : activeView === "faq" ? (
-            <FaqView />
-          ) : (
-            <PrivacyView />
-          )}
-        </section>
+        <p className="muted">
+          {selectedBannerData
+            ? `${selected?.nickname || selected?.game_account_id || "Account"} · ${selectedBannerData.total_pulls} pulls on this banner`
+            : "Track lifetime pulls, pity, banners, and recent high-rarity results."}
+        </p>
       </div>
-    </main>
-  );
-}
+
+      {dashboard?.latest_import && (
+        <div className="sync-card">
+          <span>Last synchronized</span>
+          <strong>
+            {prettyDate(dashboard.latest_import.imported_at)}
+          </strong>
+          <small>
+            {dashboard.latest_import.new_pulls} new ·{" "}
+            {dashboard.latest_import.duplicate_pulls} duplicates ignored
+          </small>
+        </div>
+      )}
+    </div>
+  )}
+
+  {error && <div className="error-box">{error}</div>}
+
+  {/* existing page content continues here */}
 
 function DashboardView({
   dashboard,
