@@ -334,6 +334,39 @@ async def account_dashboard(
             for banner in banner_rows
         }
 
+    # Suppress only fully mirrored historical banners. Shared names alone
+    # are insufficient: separate releases must keep their own pull history.
+    grouped_for_mirrors = defaultdict(list)
+    for pull in pulls:
+        grouped_for_mirrors[pull.banner_id].append(pull)
+    seen_mirrors = set()
+    mirrored_ids = set()
+    for candidate_id, candidate_pulls in grouped_for_mirrors.items():
+        candidate = banners.get(candidate_id)
+        if candidate is None:
+            continue
+        signature = (
+            str(candidate.name or "").strip().casefold(),
+            _display_banner_type(candidate),
+            tuple(sorted(
+                (
+                    str(p.item_id),
+                    str(p.pulled_at),
+                    int(p.occurrence_index or 1),
+                    int(p.rarity),
+                )
+                for p in candidate_pulls
+            )),
+        )
+        if signature in seen_mirrors:
+            mirrored_ids.add(candidate_id)
+        else:
+            seen_mirrors.add(signature)
+    if mirrored_ids:
+        pulls = [p for p in pulls if p.banner_id not in mirrored_ids]
+        banner_ids.difference_update(mirrored_ids)
+        banners = {k: v for k, v in banners.items() if k not in mirrored_ids}
+
     _all_average, all_banner_summary = (
         _pity_summary(
             pulls,
