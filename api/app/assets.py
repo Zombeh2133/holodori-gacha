@@ -437,6 +437,8 @@ class AssetService:
         self._bundle_lower = {}
         self._resource_lower = {}
         self._catalog_lock = asyncio.Lock()
+        self._missing_card_refresh_lock = asyncio.Lock()
+        self._last_missing_card_refresh = 0.0
         self._asset_locks: dict[str, asyncio.Lock] = {}
 
     @property
@@ -1228,6 +1230,24 @@ class AssetService:
         resolved = await self.resolve_card(
             card_id
         )
+        if resolved is None:
+            # New cards may not exist in a previously downloaded Octo
+            # catalog. Try one forced refresh, throttled across requests
+            # so missing/invalid IDs cannot hammer the upstream service.
+            async with self._missing_card_refresh_lock:
+                now = time.monotonic()
+                if (
+                    now - self._last_missing_card_refresh
+                    >= 10 * 60
+                ):
+                    self._last_missing_card_refresh = now
+                    try:
+                        await self._load_catalog(force=True)
+                    except Exception:
+                        # The previous catalog remains available when
+                        # the upstream catalog is temporarily unavailable.
+                        pass
+                resolved = await self.resolve_card(card_id)
         if resolved is None:
             return None
 
