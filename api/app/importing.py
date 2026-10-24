@@ -423,7 +423,141 @@ async def get_or_create_banner(
                 banner_type
             )
 
+        # If this is the old synthetic history record and a real game banner
+        # with the same name/type already exists, use the real banner instead.
+        if str(
+            banner.game_banner_id
+            or ""
+        ).startswith(
+            "history-name-"
+        ):
+            logical_matches = (
+                await session.scalars(
+                    select(
+                        GachaBanner
+                    ).where(
+                        GachaBanner.region
+                        == str(
+                            region
+                        ).upper(),
+                        func.lower(
+                            GachaBanner.name
+                        )
+                        == str(
+                            banner_name
+                            or ""
+                        ).strip().casefold(),
+                    )
+                )
+            ).all()
+
+            for candidate in logical_matches:
+                if candidate.id == banner.id:
+                    continue
+
+                if str(
+                    candidate.game_banner_id
+                    or ""
+                ).startswith(
+                    "history-name-"
+                ):
+                    continue
+
+                if infer_banner_type(
+                    candidate.game_banner_id,
+                    candidate.banner_type,
+                    candidate.name,
+                ) != infer_banner_type(
+                    banner_key,
+                    banner_type,
+                    banner_name,
+                ):
+                    continue
+
+                return candidate
+
         return banner
+
+    normalized_name = str(
+        banner_name
+        or ""
+    ).strip()
+
+    # Before creating a second record, reuse a matching logical banner when
+    # one side uses the synthetic history-name ID and the other uses the real
+    # game banner ID.
+    if normalized_name:
+        logical_matches = (
+            await session.scalars(
+                select(
+                    GachaBanner
+                ).where(
+                    GachaBanner.region
+                    == str(
+                        region
+                    ).upper(),
+                    func.lower(
+                        GachaBanner.name
+                    )
+                    == normalized_name.casefold(),
+                )
+            )
+        ).all()
+
+        incoming_is_history = str(
+            banner_key
+            or ""
+        ).startswith(
+            "history-name-"
+        )
+        incoming_type = infer_banner_type(
+            banner_key,
+            banner_type,
+            banner_name,
+        )
+
+        for candidate in logical_matches:
+            candidate_is_history = str(
+                candidate.game_banner_id
+                or ""
+            ).startswith(
+                "history-name-"
+            )
+
+            if (
+                candidate_is_history
+                == incoming_is_history
+            ):
+                continue
+
+            if infer_banner_type(
+                candidate.game_banner_id,
+                candidate.banner_type,
+                candidate.name,
+            ) != incoming_type:
+                continue
+
+            # Upgrade an existing synthetic banner to the real game ID when
+            # the real ID becomes available. Existing pulls stay attached.
+            if (
+                candidate_is_history
+                and not incoming_is_history
+            ):
+                candidate.game_banner_id = str(
+                    banner_key
+                )
+
+            if banner_name:
+                candidate.name = (
+                    banner_name
+                )
+
+            if banner_type:
+                candidate.banner_type = (
+                    banner_type
+                )
+
+            return candidate
 
     banner = GachaBanner(
         game_banner_id=str(
