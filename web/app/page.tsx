@@ -872,7 +872,7 @@ export default function Home() {
                 <span>{account.game_account_id}</span>
               </div>
               <div className="pull-total">
-                <strong>{account.pull_count}</strong>
+                <strong>{account.id === selectedAccount && dashboard ? dashboard.stats.total_pulls : account.pull_count}</strong>
                 <span>pulls</span>
               </div>
             </button>
@@ -899,7 +899,7 @@ export default function Home() {
                 <span>Lifetime statistics</span>
               </div>
               <div className="sidebar-banner-pity">
-                <strong>{selected?.pull_count ?? 0}</strong>
+                <strong>{dashboard?.stats.total_pulls ?? selected?.pull_count ?? 0}</strong>
                 <span>pulls</span>
               </div>
             </button>
