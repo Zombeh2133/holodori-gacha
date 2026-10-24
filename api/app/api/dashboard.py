@@ -172,13 +172,141 @@ def _display_banner_type(
 
     return "gacha"
 
+
+def _logical_banner_aliases(
+    banners: dict[uuid.UUID, GachaBanner],
+) -> dict[uuid.UUID, uuid.UUID]:
+    aliases = {
+        banner_id: banner_id
+        for banner_id in banners
+    }
+
+    grouped = defaultdict(list)
+    for banner_id, banner in banners.items():
+        name = str(
+            banner.name
+            or ""
+        ).strip().casefold()
+
+        if not name:
+            continue
+
+        grouped[
+            (
+                name,
+                _display_banner_type(
+                    banner
+                ),
+            )
+        ].append(
+            (
+                banner_id,
+                banner,
+            )
+        )
+
+    for candidates in grouped.values():
+        if len(candidates) < 2:
+            continue
+
+        real = [
+            item
+            for item in candidates
+            if not str(
+                item[1].game_banner_id
+                or ""
+            ).startswith(
+                "history-name-"
+            )
+        ]
+        historical = [
+            item
+            for item in candidates
+            if str(
+                item[1].game_banner_id
+                or ""
+            ).startswith(
+                "history-name-"
+            )
+        ]
+
+        # Only merge a synthetic history record into a real game banner.
+        # Two real banners with the same display name may be separate releases.
+        if not real or not historical:
+            continue
+
+        canonical_id = real[0][0]
+
+        for banner_id, _banner in candidates:
+            aliases[
+                banner_id
+            ] = canonical_id
+
+    return aliases
+
+
+def _dedupe_logical_banner_pulls(
+    pulls: list[GachaPull],
+    aliases: dict[uuid.UUID, uuid.UUID],
+) -> list[GachaPull]:
+    seen = set()
+    result = []
+
+    for pull in pulls:
+        canonical_banner_id = aliases.get(
+            pull.banner_id,
+            pull.banner_id,
+        )
+        key = (
+            canonical_banner_id,
+            str(
+                pull.item_id
+            ),
+            (
+                pull.pulled_at.isoformat()
+                if pull.pulled_at
+                else ""
+            ),
+            int(
+                pull.occurrence_index
+                or 1
+            ),
+            int(
+                pull.rarity
+            ),
+        )
+
+        if key in seen:
+            continue
+
+        seen.add(
+            key
+        )
+        result.append(
+            pull
+        )
+
+    return result
+
+
 def _pity_summary(
     pulls: list[GachaPull],
     banners: dict[uuid.UUID, GachaBanner],
+    aliases: dict[uuid.UUID, uuid.UUID] | None = None,
 ):
+    aliases = aliases or {}
+
     by_banner: dict[uuid.UUID, list[GachaPull]] = defaultdict(list)
     for pull in pulls:
-        by_banner[pull.banner_id].append(pull)
+        banner_id = aliases.get(
+            pull.banner_id,
+            pull.banner_id,
+        )
+        by_banner[
+            banner_id
+        ].append(
+            pull
+        )
 
     five_star_distances: list[int] = []
     banner_rows = []
@@ -367,10 +495,19 @@ async def account_dashboard(
         banner_ids.difference_update(mirrored_ids)
         banners = {k: v for k, v in banners.items() if k not in mirrored_ids}
 
+    banner_aliases = _logical_banner_aliases(
+        banners
+    )
+    pulls = _dedupe_logical_banner_pulls(
+        pulls,
+        banner_aliases,
+    )
+
     _all_average, all_banner_summary = (
         _pity_summary(
             pulls,
             banners,
+            banner_aliases,
         )
     )
 
@@ -385,14 +522,29 @@ async def account_dashboard(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Banner not found for this account",
             )
-        selected_banner = banners.get(
-            selected_banner_uuid
+
+        canonical_banner_uuid = (
+            banner_aliases.get(
+                selected_banner_uuid,
+                selected_banner_uuid,
+            )
+        )
+        selected_banner = (
+            banners.get(
+                canonical_banner_uuid
+            )
+            or banners.get(
+                selected_banner_uuid
+            )
         )
         scoped_pulls = [
             pull
             for pull in pulls
-            if pull.banner_id
-            == selected_banner_uuid
+            if banner_aliases.get(
+                pull.banner_id,
+                pull.banner_id,
+            )
+            == canonical_banner_uuid
         ]
     else:
         scoped_pulls = list(pulls)
@@ -441,6 +593,7 @@ async def account_dashboard(
         _pity_summary(
             scoped_pulls,
             banners,
+            banner_aliases,
         )
     )
 
