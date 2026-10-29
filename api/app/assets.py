@@ -33,6 +33,9 @@ _KNOWN_BANNER_IDS = {
     "free-style cosplay night gacha": (
         "gacha-pickup-normal-261029"
     ),
+    "first 10-pull for free! free-style cosplay night gacha": (
+        "gacha-pickup-normal-261029-free"
+    ),
     "take your pick! dreamy deep blue gacha": (
         "gacha-pickup-select-260929"
     ),
@@ -774,11 +777,13 @@ class AssetService:
         )
 
         if mapped_id:
-            direct = await self.resolve_banner(
-                mapped_id
-            )
+            direct = await self.resolve_banner(mapped_id)
             if direct is not None:
                 return direct
+            # The campaign is known: never substitute another date's
+            # artwork when the latest catalog has not arrived yet.
+            await self._load_catalog(force=True)
+            return await self.resolve_banner(mapped_id)
 
         direct = await self.resolve_banner(
             game_banner_id
