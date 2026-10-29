@@ -21,7 +21,7 @@ MAX_EXTRACTED_IMAGE_BYTES = 20 * 1024 * 1024
 
 _SAFE_NAME_RE = re.compile(r"[^a-zA-Z0-9_.-]+")
 _GACHA_PICKUP_RE = re.compile(
-    r"^gacha-pickup-(normal|select)-(\d{6})$",
+    r"^gacha-pickup-(normal|select)-(\d{6})(?:-free)?$",
     re.IGNORECASE,
 )
 
@@ -779,6 +779,12 @@ class AssetService:
         )
         if direct is not None:
             return direct
+
+        # A real pickup ID must never borrow artwork from a different
+        # campaign. Refresh the catalog once for newly released assets.
+        if _GACHA_PICKUP_RE.fullmatch(value):
+            await self._load_catalog(force=True)
+            return await self.resolve_banner(game_banner_id)
 
         await self._load_catalog()
 
