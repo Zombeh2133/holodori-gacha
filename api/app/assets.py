@@ -27,6 +27,12 @@ _GACHA_PICKUP_RE = re.compile(
 
 
 _KNOWN_BANNER_IDS = {
+    "take your pick! free-style cosplay night gacha": (
+        "gacha-pickup-select-261029"
+    ),
+    "free-style cosplay night gacha": (
+        "gacha-pickup-normal-261029"
+    ),
     "take your pick! dreamy deep blue gacha": (
         "gacha-pickup-select-260929"
     ),
